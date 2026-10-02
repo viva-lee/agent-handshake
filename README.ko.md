@@ -8,7 +8,7 @@
 전화로 AI끼리 만나면, 합성 음성으로 계속 대화할 필요가 없습니다.
 2초 남짓한 신호음으로 서로를 알아보고, HTTPS로 신원을 증명한 뒤, 예약은 API로 끝냅니다. 통화 중인 사람에게는 신호음이 들리지 않습니다.
 
-[**바로 실행하기 →**](#실행하기) · [동작 방식](#동작-방식) · [정직한 수치](#정직한-수치) · [스펙(영문)](spec/README.md) · [English](README.md)
+[**라이브 데모 →**](https://viva-lee.github.io/agent-handshake/?lang=ko) · [직접 실행하기](#실행하기) · [동작 방식](#동작-방식) · [정직한 수치](#정직한-수치) · [스펙(영문)](spec/README.md) · [English](README.md)
 
 ![에이전트 핸드셰이크 플레이그라운드: 7단계가 모두 켜지고 CONNECT, 서명 영수증이 인쇄된 장면](docs/playground-ko.webp)
 
@@ -90,6 +90,7 @@ npm run playground            # → http://127.0.0.1:4317
 npm run demo -- --lang ko             # 통화 경로 3가지를 터미널에서
 npm run demo -- handshake --lang ko   # 한 경로의 전체 타임라인
 npm test                              # 테스트 24개
+npm run build:pages                   # docs/에 정적 라이브 데모 다시 만들기 (GitHub Pages)
 ```
 
 ## 동작 방식

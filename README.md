@@ -8,7 +8,7 @@
 When two AIs meet on a phone call, they should not keep talking in synthesized speech.
 They recognize each other with a two-second tone, prove who they are over HTTPS, and finish the booking through an API. People on the line never hear it.
 
-[**Run it locally →**](#run-locally) · [How it works](#how-it-works) · [Honest numbers](#honest-numbers) · [Spec](spec/README.md) · [한국어](README.ko.md)
+[**Live demo →**](https://viva-lee.github.io/agent-handshake/) · [Run it locally](#run-locally) · [How it works](#how-it-works) · [Honest numbers](#honest-numbers) · [Spec](spec/README.md) · [한국어](README.ko.md)
 
 ![Agent Handshake playground: the caller echoes a BIND frame; the spectrogram shows the OFFER and BIND digits as pairs of pure tones](docs/hero.webp)
 
@@ -94,6 +94,7 @@ npm run demo                          # the three call paths in the terminal
 npm run demo -- handshake --lang ko   # one path with its full timeline, in Korean
 npm test                              # 24 tests, node:test, no dependencies
 npm install && npm run typecheck      # optional strict TypeScript check
+npm run build:pages                   # rebuild the static live demo in docs/ (GitHub Pages)
 ```
 
 ## How it works
