@@ -1,0 +1,30 @@
+{
+  "name": "agent-handshake",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Counter Protocol: AI agents on a phone call recognize each other with a two-second DTMF handshake and finish the job over an API, with a signed receipt.",
+  "keywords": ["ai-agents", "protocol", "dtmf", "telephony", "voice-ai", "a2a", "mcp"],
+  "homepage": "https://github.com/viva-lee/agent-handshake#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/viva-lee/agent-handshake.git"
+  },
+  "bugs": {
+    "url": "https://github.com/viva-lee/agent-handshake/issues"
+  },
+  "type": "module",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "demo": "node src/cli.ts",
+    "playground": "node src/playground/server.ts",
+    "test": "node --test \"test/**/*.test.ts\"",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.0"
+  }
+}

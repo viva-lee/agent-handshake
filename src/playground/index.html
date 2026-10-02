@@ -1,0 +1,1013 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Agent Handshake · Counter Protocol</title>
+<link rel="icon" href="/assets/logo.svg" type="image/svg+xml">
+<style>
+@font-face { font-family: "Geist"; font-weight: 400 700; font-display: swap; src: url(/assets/fonts/geist.woff2) format("woff2"); }
+@font-face { font-family: "Geist Mono"; font-weight: 400 700; font-display: swap; src: url(/assets/fonts/geist-mono.woff2) format("woff2"); }
+@font-face { font-family: "Doto"; font-weight: 400 900; font-display: swap; src: url(/assets/fonts/doto.woff2) format("woff2"); }
+
+:root {
+  --bg: #07090c; --panel: #0d1016; --panel-2: #121620; --line: #1b212c; --line-2: #262e3c;
+  --ink: #e8ecf3; --mute: #7d8797; --dim: #4a5262; --ghost: #2a3140;
+  --caller: #b497ff; --callee: #6cb6ff; --tone: #ffb224; --data: #2ee6c5; --ok: #3ddc84; --bad: #ff6b6b;
+  --paper: #f2eee3; --paper-ink: #24211b; --paper-mute: #8b8578;
+  --kr: "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR";
+  --ui: "Geist", ui-sans-serif, system-ui, var(--kr), sans-serif;
+  --mono: "Geist Mono", ui-monospace, Consolas, var(--kr), monospace;
+  --dot: "Doto", "Geist Mono", monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { background: var(--bg); }
+body {
+  min-height: 100vh; color: var(--ink); font: 400 13px/1.45 var(--ui); -webkit-font-smoothing: antialiased;
+  background:
+    radial-gradient(900px 420px at 18% -8%, rgba(180, 151, 255, .10), transparent 70%),
+    radial-gradient(900px 480px at 92% 4%, rgba(46, 230, 197, .07), transparent 70%),
+    var(--bg);
+}
+body::before { /* film grain */
+  content: ""; position: fixed; inset: 0; pointer-events: none; opacity: .05; z-index: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+#app { position: relative; z-index: 1; max-width: 1240px; margin: 0 auto; padding: 22px 18px 28px; display: flex; flex-direction: column; gap: 14px; }
+.panel { background: linear-gradient(180deg, var(--panel-2), var(--panel)); border: 1px solid var(--line); border-radius: 16px; padding: 16px 18px; position: relative; min-width: 0; box-shadow: 0 1px 0 rgba(255,255,255,.03) inset, 0 20px 40px -28px rgba(0,0,0,.8); }
+.ph { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.ph h2 { font: 600 11px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--mute); display: flex; align-items: center; gap: 8px; }
+.ph h2::before { content: ""; width: 6px; height: 6px; border-radius: 2px; background: var(--dim); }
+.ph .r { font: 500 10.5px/1 var(--mono); color: var(--dim); letter-spacing: .06em; text-align: right; }
+.sub { color: var(--dim); font: 400 11px/1.5 var(--mono); margin-top: 6px; }
+.dotf { font-family: var(--dot); font-weight: 800; letter-spacing: .02em; }
+
+/* ---------- header */
+.top { display: flex; align-items: center; gap: 16px; }
+.top img { width: 56px; height: 56px; border-radius: 14px; box-shadow: 0 0 0 1px var(--line), 0 10px 30px -10px rgba(46,230,197,.35); }
+.top h1 { font: 650 30px/1 var(--ui); letter-spacing: -.03em; }
+.top h1 em { font-style: normal; color: var(--mute); font-weight: 450; }
+.top p { margin-top: 6px; font: 500 11px/1 var(--mono); color: var(--mute); letter-spacing: .06em; }
+.top p b { color: var(--data); font-weight: 600; }
+.top .clock { margin-left: auto; text-align: right; }
+.top .clock .dotf { display: block; font-size: 40px; line-height: .9; color: var(--ink); text-shadow: 0 0 18px rgba(232,236,243,.18); }
+.top .clock span:last-child { font: 500 10px/1 var(--mono); color: var(--dim); letter-spacing: .14em; }
+
+/* ---------- modem front panel */
+.front { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 22px; padding: 14px 18px; }
+.leds { display: flex; gap: 14px; }
+.led { display: grid; justify-items: center; gap: 6px; font: 600 9px/1 var(--mono); letter-spacing: .12em; color: var(--dim); }
+.led i { width: 10px; height: 10px; border-radius: 50%; background: #1a1f29; box-shadow: inset 0 1px 1px rgba(0,0,0,.6); transition: background .12s, box-shadow .12s; }
+.led.on { color: var(--ink); }
+.led.on i { background: var(--c, var(--ok)); box-shadow: 0 0 10px 1px var(--c, var(--ok)), inset 0 -1px 2px rgba(0,0,0,.3); }
+.led.blink i { animation: blink .5s steps(2) infinite; }
+.led.bad i { background: var(--bad); box-shadow: 0 0 10px 1px var(--bad); }
+.rail { position: relative; display: grid; grid-template-columns: repeat(7, 1fr); align-items: start; }
+.rail::before { content: ""; position: absolute; left: 7%; right: 7%; top: 6px; height: 2px; background: var(--line-2); border-radius: 2px; }
+.rail .fill { position: absolute; left: 7%; top: 6px; height: 2px; border-radius: 2px; background: linear-gradient(90deg, var(--data), var(--tone)); box-shadow: 0 0 10px rgba(46,230,197,.5); width: 0; transition: width .35s ease; }
+.rail .fill.bad { background: linear-gradient(90deg, var(--data), var(--bad)); box-shadow: 0 0 10px rgba(255,107,107,.45); }
+.step { position: relative; display: grid; justify-items: center; gap: 7px; font: 600 9px/1 var(--mono); letter-spacing: .1em; color: var(--dim); text-align: center; }
+.step i { width: 14px; height: 14px; border-radius: 50%; background: #171c25; border: 1px solid var(--line-2); transition: all .2s; }
+.step.done { color: var(--mute); } .step.done i { background: var(--data); border-color: var(--data); box-shadow: 0 0 10px rgba(46,230,197,.6); }
+.step.now { color: var(--ink); } .step.now i { background: var(--tone); border-color: var(--tone); box-shadow: 0 0 0 4px rgba(255,178,36,.18), 0 0 14px rgba(255,178,36,.8); animation: pulse 1s ease-in-out infinite; }
+.step.lost { color: var(--ghost); } .step.lost i { border-style: dashed; background: transparent; }
+.step.skip i { border-style: dotted; background: transparent; }
+.status { min-width: 220px; text-align: right; }
+.status .dotf { display: block; font-size: 22px; color: var(--tone); text-shadow: 0 0 14px rgba(255,178,36,.45); white-space: nowrap; }
+.status .dotf.ok { color: var(--ok); text-shadow: 0 0 14px rgba(61,220,132,.45); }
+.status .dotf.bad { color: var(--bad); text-shadow: 0 0 14px rgba(255,107,107,.4); }
+.status span:last-child { font: 500 10px/1 var(--mono); color: var(--dim); letter-spacing: .1em; }
+@keyframes blink { 50% { opacity: .25; } }
+@keyframes pulse { 50% { box-shadow: 0 0 0 7px rgba(255,178,36,.06), 0 0 18px rgba(255,178,36,.9); } }
+
+/* ---------- scenario cards */
+.cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.card { text-align: left; border: 1px solid var(--line); background: var(--panel); border-radius: 14px; padding: 12px 14px; display: grid; gap: 8px; transition: border-color .15s, transform .15s, background .15s; }
+.card:hover { border-color: var(--line-2); transform: translateY(-1px); }
+.card.on { border-color: rgba(46,230,197,.55); background: linear-gradient(180deg, rgba(46,230,197,.07), var(--panel)); box-shadow: 0 0 0 1px rgba(46,230,197,.15) inset; }
+.card .t { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.card b { font: 600 13px/1.2 var(--ui); }
+.card .dotf { font-size: 18px; color: var(--mute); }
+.card.on .dotf { color: var(--data); }
+.card small { color: var(--dim); font: 400 11px/1.35 var(--mono); }
+.card .mini { height: 5px; border-radius: 3px; background: var(--line); display: flex; overflow: hidden; }
+.card .mini i { height: 100%; }
+
+/* ---------- transport */
+.transport { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 12px; }
+.btn { font: 600 11px/1 var(--mono); letter-spacing: .06em; color: var(--ink); background: var(--panel-2); border: 1px solid var(--line-2); border-radius: 10px; padding: 9px 12px; white-space: nowrap; transition: border-color .15s, color .15s, background .15s; }
+.btn:hover { border-color: var(--mute); }
+.btn:focus-visible { outline: 2px solid var(--data); outline-offset: 2px; }
+.btn.pri { background: var(--ink); color: #0a0c10; border-color: var(--ink); min-width: 104px; }
+.btn.pri:hover { background: #fff; }
+.seg { display: inline-flex; background: var(--panel-2); border: 1px solid var(--line-2); border-radius: 10px; padding: 2px; }
+.seg .btn { border: 0; background: none; border-radius: 8px; padding: 7px 10px; color: var(--mute); }
+.seg .btn.on { background: var(--line-2); color: var(--ink); }
+.readouts { margin-left: auto; display: flex; gap: 18px; align-items: baseline; }
+.ro { display: grid; gap: 3px; text-align: right; }
+.ro .dotf { font-size: 20px; line-height: 1; }
+.ro label { font: 500 9px/1 var(--mono); letter-spacing: .12em; color: var(--dim); text-transform: uppercase; }
+.ro.tone .dotf { color: var(--tone); } .ro.data .dotf { color: var(--data); } .ro.ok .dotf { color: var(--ok); }
+
+/* ---------- monitor */
+.caption { display: flex; align-items: center; gap: 12px; min-height: 52px; margin: 12px 0 10px; padding: 10px 14px; border-radius: 12px; background: rgba(255,255,255,.02); border: 1px solid var(--line); }
+.who { flex: none; font: 700 10px/1 var(--mono); letter-spacing: .12em; padding: 6px 8px; border-radius: 7px; color: #0a0c10; background: var(--dim); }
+.who.caller { background: var(--caller); } .who.callee { background: var(--callee); } .who.tone { background: var(--tone); } .who.data { background: var(--data); } .who.sys { background: var(--line-2); color: var(--mute); }
+.say { font: 500 16px/1.4 var(--ui); letter-spacing: -.005em; min-width: 0; }
+.say .caret { display: inline-block; width: 8px; height: 17px; margin-left: 2px; vertical-align: -3px; background: currentColor; opacity: .7; animation: blink .9s steps(2) infinite; }
+.say.mono { font: 500 14px/1.4 var(--mono); }
+.say .think i { display: inline-block; width: 6px; height: 6px; margin-right: 4px; border-radius: 50%; background: var(--mute); animation: think 1s infinite; }
+.say .think i:nth-child(2) { animation-delay: .15s; } .say .think i:nth-child(3) { animation-delay: .3s; }
+@keyframes think { 50% { transform: translateY(-3px); opacity: .4; } }
+.specwrap { position: relative; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); background: #06080b; }
+#spec { display: block; width: 100%; height: 260px; }
+.bigdigit { position: absolute; right: 18px; top: 10px; font-size: 64px; line-height: 1; color: var(--tone); text-shadow: 0 0 24px rgba(255,178,36,.6); pointer-events: none; transition: opacity .12s; }
+
+/* ---------- 3-col grids */
+.grid3 { display: grid; grid-template-columns: 1.25fr 1fr 0.95fr; gap: 14px; }
+.grid3b { display: grid; grid-template-columns: 1.5fr 0.95fr 1fr; gap: 14px; }
+#topo { display: block; width: 100%; flex: 1; min-height: 250px; margin-top: 10px; }
+.fillcol { display: flex; flex-direction: column; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 8px; font: 500 10px/1 var(--mono); color: var(--dim); letter-spacing: .06em; }
+.legend i { display: inline-block; width: 14px; height: 3px; border-radius: 2px; margin-right: 6px; vertical-align: 2px; }
+
+/* decoder */
+.lcd { margin-top: 12px; border-radius: 12px; padding: 12px 14px 10px; background: radial-gradient(120% 140% at 50% 0%, #121a17, #070a09); border: 1px solid #1d2a25; box-shadow: inset 0 0 30px rgba(0,0,0,.6); }
+.lcd .digits { font-size: 27px; line-height: 1; letter-spacing: .04em; white-space: nowrap; overflow: hidden; color: #2a3a33; }
+.lcd .digits i { font-style: normal; transition: color .08s; }
+.lcd .digits i.done { color: #e6c88a; }
+.lcd .digits i.on { color: var(--tone); text-shadow: 0 0 14px var(--tone); }
+.lcd .fields { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 8px; font: 500 10px/1.3 var(--mono); color: #6f8a7f; letter-spacing: .06em; }
+.lcd .fields b { color: #cfe3d9; font-weight: 600; }
+.lcd .fields .okc { color: var(--ok); }
+.keys { display: grid; grid-template-columns: 34px repeat(3, 1fr); gap: 6px; margin-top: 12px; align-items: center; }
+.keys .hz { font: 500 9px/1 var(--mono); color: var(--dim); text-align: center; transition: color .1s; }
+.keys .hz.on { color: var(--tone); }
+.key { height: 34px; border-radius: 999px; display: grid; place-items: center; font: 600 15px/1 var(--ui); background: linear-gradient(180deg, #1a202b, #12161e); border: 1px solid var(--line-2); box-shadow: 0 2px 0 #07090c, inset 0 1px 0 rgba(255,255,255,.04); transition: transform .06s, background .06s, box-shadow .06s, color .06s; }
+.key.on { transform: translateY(2px); background: var(--tone); color: #1a1205; border-color: var(--tone); box-shadow: 0 0 0 #07090c, 0 0 22px rgba(255,178,36,.65); }
+.hzread { display: flex; justify-content: space-between; align-items: baseline; margin-top: 10px; font: 500 10px/1 var(--mono); color: var(--dim); letter-spacing: .08em; }
+.hzread .dotf { font-size: 20px; color: var(--tone); min-height: 20px; }
+
+/* receipt */
+.paperwrap { margin-top: 14px; display: flex; flex-direction: column; align-items: center; min-height: 380px; position: relative; }
+.slot { width: min(100%, 300px); height: 12px; border-radius: 6px; background: #05070a; border: 1px solid var(--line-2); box-shadow: inset 0 2px 6px rgba(0,0,0,.9), 0 0 18px -6px rgba(46,230,197,.45); position: relative; z-index: 2; }
+.slot.busy { box-shadow: inset 0 2px 6px rgba(0,0,0,.9), 0 0 22px -2px rgba(255,178,36,.7); }
+.paper { --edge: 8px; position: relative; margin-top: -4px; width: min(100%, 280px); background: var(--paper); color: var(--paper-ink); font: 500 11px/1.55 var(--mono); padding: 18px 16px 18px; box-shadow: 0 18px 30px -12px rgba(0,0,0,.7); transform: rotate(-.6deg); transition: transform .3s; }
+.paper::before, .paper::after { content: ""; position: absolute; left: 0; right: 0; height: var(--edge); background: radial-gradient(circle at 6px 0, transparent 5.5px, var(--paper) 6px) repeat-x; background-size: 12px var(--edge); }
+.paper::before { display: none; }
+.paper::after { bottom: calc(-1 * var(--edge) + 1px); }
+.paper .ln { display: flex; justify-content: space-between; gap: 10px; white-space: nowrap; }
+.paper .ln span:last-child { overflow: hidden; text-overflow: ellipsis; }
+.paper .ctr { text-align: center; }
+.paper .big { font: 700 15px/1.3 var(--mono); letter-spacing: .04em; }
+.paper .mute { color: var(--paper-mute); }
+.paper hr { border: 0; border-top: 1px dashed #b9b3a4; margin: 8px 0; }
+.paper .bars { height: 30px; margin-top: 8px; display: flex; gap: 1px; align-items: stretch; }
+.paper .bars i { background: var(--paper-ink); }
+.paper .row { display: none; }
+.paper .row.show { display: block; animation: feed .18s ease-out; }
+@keyframes feed { from { opacity: 0; transform: translateY(-6px); } }
+.stamp { position: absolute; right: -16px; top: 62px; transform: rotate(-14deg) scale(1.8); opacity: 0; border: 2.5px solid currentColor; border-radius: 8px; padding: 5px 9px; font: 800 13px/1 var(--mono); letter-spacing: .14em; color: #1f8f50; mix-blend-mode: multiply; transition: transform .25s cubic-bezier(.2,1.6,.4,1), opacity .2s; }
+.stamp.show { opacity: .9; transform: rotate(-14deg) scale(1); }
+.stamp.bad { color: #c0392b; }
+.stamp small { display: block; font-size: 8px; letter-spacing: .1em; margin-top: 3px; text-align: center; }
+.paper.empty { color: var(--paper-mute); }
+
+/* log */
+#log { height: 330px; overflow-y: auto; margin-top: 10px; display: flex; flex-direction: column; gap: 2px; padding-right: 4px; scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
+.lg { display: grid; grid-template-columns: 46px 64px 1fr; gap: 10px; padding: 6px 8px; border-radius: 9px; align-items: start; }
+.lg:hover { background: rgba(255,255,255,.025); }
+.lg .t { font: 500 11px/1.6 var(--mono); color: var(--dim); }
+.lg .w { font: 700 9.5px/1.9 var(--mono); letter-spacing: .1em; }
+.lg .w.caller { color: var(--caller); } .lg .w.callee { color: var(--callee); } .lg .w.tone { color: var(--tone); } .lg .w.data { color: var(--data); } .lg .w.sys { color: var(--dim); }
+.lg .x { font: 400 13px/1.5 var(--ui); color: var(--ink); min-width: 0; }
+.lg.tone .x, .lg.data .x, .lg.sys .x { font: 500 11.5px/1.6 var(--mono); color: var(--mute); }
+.lg .x b { color: var(--ink); font-weight: 600; }
+.lg .what { color: var(--dim); margin-left: 6px; }
+.lg.data { cursor: pointer; }
+.lg pre { grid-column: 3; margin-top: 6px; padding: 10px 12px; background: #090c11; border: 1px solid var(--line); border-radius: 10px; white-space: pre-wrap; word-break: break-all; max-height: 260px; overflow: auto; font: 400 11px/1.5 var(--mono); color: #b8c2d3; }
+.lg.now { background: rgba(46,230,197,.06); box-shadow: inset 2px 0 0 var(--data); }
+
+/* trust */
+.checks { display: grid; gap: 9px; margin-top: 14px; }
+.ck { display: flex; align-items: center; gap: 10px; font: 400 12.5px/1.3 var(--ui); color: var(--dim); transition: color .2s; }
+.ck svg { flex: none; width: 18px; height: 18px; }
+.ck svg circle { fill: none; stroke: var(--line-2); stroke-width: 1.5; transition: stroke .2s, fill .2s; }
+.ck svg path { fill: none; stroke: #07120c; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 14; stroke-dashoffset: 14; transition: stroke-dashoffset .35s ease .05s; }
+.ck.on { color: var(--ink); }
+.ck.on svg circle { fill: var(--ok); stroke: var(--ok); }
+.ck.on svg path { stroke-dashoffset: 0; }
+.ck.skip { color: var(--ghost); }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); font: 500 11px/1.4 var(--mono); }
+.kv dt { color: var(--dim); letter-spacing: .08em; text-transform: uppercase; font-size: 9.5px; padding-top: 1px; }
+.kv dd { color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chip { display: inline-block; padding: 2px 6px; margin: 0 4px 4px 0; border-radius: 6px; font-size: 10px; color: var(--data); background: rgba(46,230,197,.09); border: 1px solid rgba(46,230,197,.2); }
+.badge { font: 700 9.5px/1 var(--mono); letter-spacing: .1em; padding: 6px 9px; border-radius: 999px; color: var(--mute); background: var(--line); }
+.badge.ok { color: #06140c; background: var(--ok); box-shadow: 0 0 14px rgba(61,220,132,.35); }
+.badge.tone { color: #1a1205; background: var(--tone); }
+
+/* race */
+.lanes { display: grid; gap: 16px; margin-top: 16px; }
+.lane .top2 { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 7px; }
+.lane .top2 span { font: 500 12px/1.2 var(--ui); color: var(--mute); }
+.lane.cur .top2 span { color: var(--ink); font-weight: 600; }
+.lane .dotf { font-size: 17px; color: var(--mute); }
+.lane.cur .dotf { color: var(--ink); }
+.track { position: relative; height: 10px; border-radius: 5px; background: var(--line); overflow: visible; display: flex; }
+.track i { height: 100%; transition: width .8s cubic-bezier(.2,.8,.2,1); }
+.track i:first-child { border-radius: 5px 0 0 5px; }
+.track .head { position: absolute; top: -4px; width: 2px; height: 18px; background: var(--ink); border-radius: 2px; box-shadow: 0 0 8px var(--ink); }
+.callout { margin-top: 18px; padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(46,230,197,.25); background: linear-gradient(135deg, rgba(46,230,197,.08), rgba(180,151,255,.05)); font: 400 12px/1.5 var(--ui); color: var(--mute); }
+.callout:empty { display: none; }
+.callout .dotf { font-size: 30px; color: var(--data); display: block; line-height: 1; margin-bottom: 4px; text-shadow: 0 0 18px rgba(46,230,197,.35); }
+.assume { margin-top: 12px; font: 500 10px/1.5 var(--mono); color: var(--dim); letter-spacing: .04em; }
+
+footer { text-align: center; color: var(--dim); font: 500 11px/2 var(--mono); letter-spacing: .03em; padding-top: 4px; }
+.kbd { display: inline-block; padding: 0 6px; margin: 0 3px; border-radius: 5px; border: 1px solid var(--line-2); border-bottom-width: 2px; color: var(--mute); line-height: 1.5; }
+
+@media (max-width: 1060px) {
+  .grid3, .grid3b { grid-template-columns: 1fr 1fr; }
+  .grid3 > :first-child, .grid3b > :first-child { grid-column: 1 / -1; }
+  .front { grid-template-columns: 1fr; gap: 16px; }
+  .status { text-align: left; }
+  .readouts { margin-left: 0; width: 100%; justify-content: space-between; }
+}
+@media (max-width: 680px) {
+  #app { padding: 14px 10px 20px; gap: 10px; }
+  .top h1 { font-size: 22px; }
+  .top h1 em { display: block; font-size: 14px; margin-top: 3px; }
+  .top p { line-height: 1.5; }
+  .top .clock .dotf { font-size: 28px; }
+  .cards { grid-template-columns: 1fr 1fr; }
+  .grid3, .grid3b { grid-template-columns: 1fr; }
+  .leds { gap: 10px; flex-wrap: wrap; }
+  .step { font-size: 7.5px; letter-spacing: .04em; }
+  #spec { height: 170px; }
+  .bigdigit { font-size: 44px; }
+  .readouts { gap: 10px; }
+  .ro .dotf { font-size: 16px; }
+  .lg { grid-template-columns: 38px 56px 1fr; gap: 6px; }
+}
+body.frozen *, body.frozen *::before, body.frozen *::after { transition: none !important; animation: none !important; }
+.ro.bad .dotf { color: var(--bad); }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body>
+<main id="app">
+  <header class="top">
+    <img src="/assets/logo.svg" alt="Dot-matrix telephone handset sending signal arcs">
+    <div>
+      <h1>agent handshake <em>· counter protocol</em></h1>
+      <p id="tagline"></p>
+    </div>
+    <div class="clock"><span class="dotf" id="clock">00:00.0</span><span data-i="simClock"></span></div>
+  </header>
+
+  <section class="panel front" aria-label="handshake status">
+    <div class="leds" id="leds"></div>
+    <div class="rail" id="rail"><div class="fill" id="railFill"></div></div>
+    <div class="status"><span class="dotf" id="statusText">READY</span><span id="statusSub"></span></div>
+  </section>
+
+  <nav class="cards" id="cards"></nav>
+
+  <section class="panel transport">
+    <button class="btn pri" id="run"></button>
+    <button class="btn" id="step"></button>
+    <div class="seg" id="speed"><button class="btn" data-v="1">1×</button><button class="btn" data-v="2">2×</button><button class="btn" data-v="4">4×</button><button class="btn" data-v="8">8×</button></div>
+    <div class="seg" id="lang"><button class="btn" data-v="en">EN</button><button class="btn" data-v="ko">한국어</button></div>
+    <button class="btn" id="sound"></button>
+    <button class="btn" id="restart"></button>
+    <div class="readouts">
+      <div class="ro"><span class="dotf" id="roTurns">0</span><label data-i="roTurns"></label></div>
+      <div class="ro tone"><span class="dotf" id="roTones">0</span><label data-i="roTones"></label></div>
+      <div class="ro data"><span class="dotf" id="roApi">0</span><label data-i="roApi"></label></div>
+      <div class="ro ok"><span class="dotf" id="roSaved">--</span><label data-i="roSaved"></label></div>
+    </div>
+  </section>
+
+  <section class="panel monitor">
+    <div class="ph"><h2 data-i="hMonitor"></h2><span class="r" id="monR"></span></div>
+    <div class="caption" aria-live="polite"><span class="who sys" id="who">LINE</span><span class="say" id="say"></span></div>
+    <div class="specwrap"><canvas id="spec"></canvas><span class="bigdigit dotf" id="bigdigit"></span></div>
+    <div class="legend" id="specLegend"></div>
+  </section>
+
+  <div class="grid3">
+    <section class="panel fillcol">
+      <div class="ph"><h2 data-i="hTopo"></h2><span class="r" id="topoR"></span></div>
+      <canvas id="topo"></canvas>
+      <div class="legend" id="topoLegend"></div>
+    </section>
+    <section class="panel">
+      <div class="ph"><h2 data-i="hDecoder"></h2><span class="badge" id="frameBadge">--</span></div>
+      <div class="lcd"><div class="digits dotf" id="lcdDigits">*#---------------#</div><div class="fields" id="lcdFields"></div></div>
+      <div class="keys" id="keys"></div>
+      <div class="hzread"><span data-i="hzLabel"></span><span class="dotf" id="hz"></span></div>
+    </section>
+    <section class="panel">
+      <div class="ph"><h2 data-i="hReceipt"></h2><span class="badge" id="rcptBadge">--</span></div>
+      <div class="paperwrap" id="paperwrap"></div>
+    </section>
+  </div>
+
+  <div class="grid3b">
+    <section class="panel">
+      <div class="ph"><h2 data-i="hLog"></h2><span class="r" id="logCount"></span></div>
+      <div class="sub" data-i="logSub"></div>
+      <div id="log"></div>
+    </section>
+    <section class="panel">
+      <div class="ph"><h2 data-i="hTrust"></h2><span class="badge" id="trustBadge">--</span></div>
+      <div class="checks" id="checks"></div>
+      <dl class="kv" id="kv"></dl>
+    </section>
+    <section class="panel">
+      <div class="ph"><h2 data-i="hRace"></h2><span class="r">SIMULATED</span></div>
+      <div class="sub" data-i="raceSub"></div>
+      <div class="lanes" id="lanes"></div>
+      <div class="callout" id="callout"></div>
+      <div class="assume" id="assume"></div>
+    </section>
+  </div>
+  <footer id="foot"></footer>
+</main>
+
+<script>
+// ============================================================ text (English + 한국어)
+const I18N = {
+  en: {
+    tagline: '<b>AI ↔ AI</b> ON A PHONE CALL · TWO-SECOND TONE · SIGNED RECEIPT · SIMULATED LINE',
+    simClock: 'SIM CLOCK',
+    leds: { OH: 'OH', VO: 'VO', TN: 'TN', DA: 'DA', LK: 'LK' },
+    ledTitle: { OH: 'off hook: call active', VO: 'voice on the line', TN: 'DTMF tones', DA: 'data over HTTPS', LK: 'session bound to the call' },
+    steps: ['DISCLOSE', 'OFFER', 'RESOLVE', 'ACCEPT', 'BIND', 'COMMIT', 'RECEIPT'],
+    status: { ready: 'READY', voice: 'VOICE', hs: (n) => `HANDSHAKE ${n}/7`, connect: 'CONNECT', nocarrier: 'NO CARRIER', voiceonly: 'VOICE ONLY', nocall: 'NO CALL · API', ended: 'ON HOOK' },
+    statusSub: { ready: 'waiting for the call', voice: 'talking by voice', hs: 'upgrading to the API', connect: 'booked over the API · receipt signed', nocarrier: 'tones ignored → voice fallback', voiceonly: 'no AI disclosed → no tones', nocall: 'number lookup → direct session', ended: 'call ended' },
+    cards: {
+      handshake: ['AI ↔ AI', 'both sides speak the protocol'],
+      'ai-no-cp': ['AI, no protocol', 'offer ignored → voice'],
+      human: ['Human caller', 'no tones, plain voice'],
+      direct: ['No call', 'look up the number → API'],
+    },
+    run: '▶ RUN', pause: '❚❚ PAUSE', replay: '↺ REPLAY', step: 'STEP ›', restart: 'RESTART', soundOn: '♫ TONES ON', soundOff: '♫ TONES OFF',
+    roTurns: 'voice turns', roTones: 'tone frames', roApi: 'api calls', roSaved: 'vs human',
+    hMonitor: 'line monitor · spectrogram', hTopo: 'topology', hDecoder: 'dtmf decoder', hReceipt: 'receipt', hLog: 'call log', hTrust: 'trust', hRace: 'call time',
+    monR: '0–1.6 kHz · last 8 s',
+    caller: 'CALLER', callee: 'SHOP AI', tone: 'DTMF', data: 'HTTPS', line: 'LINE',
+    lineIdle: 'line open', lineEnded: 'call ended', lineNoCall: 'no phone call: the agent found the shop by its number and opened a session directly',
+    specLegend: ['speech: harmonics + formants', 'DTMF: two pure tones per digit', 'silence: data moved off the line'],
+    topoLegend: ['phone line', 'HTTPS data link', 'registry'],
+    topoR: { idle: 'phone only', link: 'data link up', bound: 'bound to call', nocall: 'no call' },
+    nodes: { caller: 'CALLER AGENT', person: 'PERSON', callee: 'SHOP AI', registry: 'REGISTRY', bound: 'BOUND' },
+    fields: { type: 'TYPE', reg: 'REG', code: 'CODE', bind: 'BIND', luhn: 'LUHN' },
+    frameNone: 'NO TONES ON THIS PATH', frameWait: 'NO TONES YET',
+    hzLabel: 'ROW + COLUMN TONE',
+    rc: { title: 'BOOKING RECEIPT', booked: 'BOOKED', service: 'SERVICE', start: 'START', staff: 'STAFF', price: 'PRICE', fee: 'CANCEL FEE', id: 'BOOKING', agent: 'AGENT', signed: 'SIGNED Ed25519', verified: 'VERIFIED', vsub: 'SIGNATURE OK', unsigned: 'UNSIGNED', usub: 'NO PROOF',
+      waiting: 'waiting for the booking…', voiceBody: 'Booked by voice.<br>Nothing was signed.<br><br>If the shop and the customer remember the call differently, nobody can prove what was agreed.', thanks: 'kept by the agent for its principal' },
+    checks: ['AI disclosed by voice', 'OFFER tones played', 'record verified · tel = dialed', 'identity + mandate accepted', 'session bound to this call', 'signed receipt verified'],
+    kv: { trust: 'trust', principal: 'principal', scope: 'scope', session: 'session', bind: 'bind code' },
+    logSub: 'click an HTTPS line to see the request and response, JWS payloads decoded',
+    raceSub: 'same shop, same request, same booked slot — only the path differs',
+    lanes: { handshake: 'AI ↔ AI · handshake', 'ai-no-cp': 'AI without protocol', human: 'Human caller', direct: 'No call · direct API' },
+    callout: (pct, a, b) => `<span class="dotf">-${pct}%</span>call time versus a person phoning (${a} vs ${b}). What is left is mostly the greeting.`,
+    assume: (a) => `assumed: ${a.ms_per_char} ms per character · ${a.turn_gap_ms} ms per turn · ${a.assumed_rtt_ms} ms round trip`,
+    what: { 'POST /rendezvous': 'issue rendezvous code', 'GET /rendezvous': 'resolve code → signed record', 'POST /handshake/accept': 'present identity + mandate', 'GET /card': 'read business card', 'POST /availability': 'find free times', 'POST /holds': 'hold the slot', 'POST /bookings': 'confirm → signed receipt', 'GET /lookup': 'find shop by phone number', 'POST /sessions': 'open session' },
+    foot: 'simulated phone line, scripted speech · HTTP, Ed25519 signatures and sessions are real<br><span class="kbd">space</span>run / pause <span class="kbd">→</span>step <span class="kbd">1–4</span>speed <span class="kbd">r</span>restart · ?at=15.2 opens a moment · Counter Protocol v0.1 · Apache-2.0',
+  },
+  ko: {
+    tagline: '전화 속 <b>AI ↔ AI</b> · 2초 신호음 · 서명 영수증 · 시뮬레이션 회선',
+    simClock: '시뮬레이션 시계',
+    leds: { OH: 'OH', VO: 'VO', TN: 'TN', DA: 'DA', LK: 'LK' },
+    ledTitle: { OH: '통화 중', VO: '음성', TN: 'DTMF 신호음', DA: 'HTTPS 데이터', LK: '세션이 통화와 결합됨' },
+    steps: ['DISCLOSE', 'OFFER', 'RESOLVE', 'ACCEPT', 'BIND', 'COMMIT', 'RECEIPT'],
+    status: { ready: 'READY', voice: 'VOICE', hs: (n) => `HANDSHAKE ${n}/7`, connect: 'CONNECT', nocarrier: 'NO CARRIER', voiceonly: 'VOICE ONLY', nocall: 'NO CALL · API', ended: 'ON HOOK' },
+    statusSub: { ready: '통화 대기 중', voice: '음성으로 대화 중', hs: 'API로 넘어가는 중', connect: 'API로 예약 · 영수증 서명 완료', nocarrier: '신호음 무시 → 음성으로 계속', voiceonly: 'AI라고 밝히지 않음 → 신호음 없음', nocall: '번호로 찾아 바로 세션', ended: '통화 종료' },
+    cards: {
+      handshake: ['AI ↔ AI', '양쪽 모두 프로토콜 지원'],
+      'ai-no-cp': ['프로토콜 없는 AI', '제안 무시 → 음성'],
+      human: ['사람이 전화', '신호음 없이 음성으로'],
+      direct: ['전화 없음', '번호로 찾아 → API'],
+    },
+    run: '▶ 재생', pause: '❚❚ 일시정지', replay: '↺ 다시', step: '한 단계 ›', restart: '처음부터', soundOn: '♫ 신호음 켬', soundOff: '♫ 신호음 끔',
+    roTurns: '음성 차례', roTones: '신호 프레임', roApi: 'API 호출', roSaved: '사람 대비',
+    hMonitor: '회선 모니터 · 스펙트로그램', hTopo: '연결 구조', hDecoder: 'DTMF 디코더', hReceipt: '영수증', hLog: '통화 기록', hTrust: '신뢰', hRace: '통화 시간',
+    monR: '0–1.6 kHz · 최근 8초',
+    caller: '거는 쪽', callee: '가게 AI', tone: 'DTMF', data: 'HTTPS', line: '회선',
+    lineIdle: '회선 연결됨', lineEnded: '통화 종료', lineNoCall: '전화 없음: 에이전트가 번호로 가게를 찾아 바로 세션을 열었습니다',
+    specLegend: ['음성: 배음 + 포먼트', 'DTMF: 숫자마다 순수한 두 음', '무음: 데이터가 회선 밖으로 이동'],
+    topoLegend: ['전화 회선', 'HTTPS 데이터 링크', '레지스트리'],
+    topoR: { idle: '전화만', link: '데이터 링크 연결', bound: '통화와 결합', nocall: '전화 없음' },
+    nodes: { caller: '거는 쪽 AI', person: '사람', callee: '가게 AI', registry: '레지스트리', bound: '결합됨' },
+    fields: { type: '종류', reg: '레지스트리', code: '코드', bind: '결합', luhn: '검증' },
+    frameNone: '이 경로엔 신호음 없음', frameWait: '아직 신호음 없음',
+    hzLabel: '행 + 열 주파수',
+    rc: { title: '예약 영수증', booked: '예약 확정', service: '서비스', start: '시작', staff: '담당', price: '가격', fee: '취소 수수료', id: '예약 번호', agent: '에이전트', signed: 'Ed25519 서명', verified: 'VERIFIED', vsub: '서명 확인', unsigned: 'UNSIGNED', usub: '증명 없음',
+      waiting: '예약을 기다리는 중…', voiceBody: '음성으로 예약됐습니다.<br>서명된 것은 없습니다.<br><br>가게와 손님의 기억이 다르면, 무엇을 합의했는지 아무도 증명할 수 없습니다.', thanks: '에이전트가 고객 대신 보관' },
+    checks: ['음성으로 AI임을 밝힘', 'OFFER 신호음 전송', '기록 검증 · 번호 일치', '신원·위임 증명 수락', '세션을 이 통화와 결합', '서명 영수증 검증'],
+    kv: { trust: '신뢰 등급', principal: '고객 ID', scope: '권한', session: '세션', bind: '결합 코드' },
+    logSub: 'HTTPS 줄을 누르면 요청과 응답이 펼쳐집니다 · JWS 내용 해독',
+    raceSub: '같은 가게, 같은 요청, 같은 예약 시간 — 경로만 다릅니다',
+    lanes: { handshake: 'AI ↔ AI · 핸드셰이크', 'ai-no-cp': '프로토콜 없는 AI', human: '사람이 전화', direct: '전화 없음 · API 바로' },
+    callout: (pct, a, b) => `<span class="dotf">-${pct}%</span>사람이 거는 통화보다 짧습니다 (${a} vs ${b}). 남은 시간은 대부분 인사말입니다.`,
+    assume: (a) => `가정: 글자당 ${a.ms_per_char}ms · 차례당 ${a.turn_gap_ms}ms · 왕복 ${a.assumed_rtt_ms}ms`,
+    what: { 'POST /rendezvous': '만남 코드 발급', 'GET /rendezvous': '코드 확인 → 서명된 기록', 'POST /handshake/accept': '신원·위임 증명 제출', 'GET /card': '가게 정보 조회', 'POST /availability': '빈 시간 조회', 'POST /holds': '임시 확보', 'POST /bookings': '확정 → 서명 영수증', 'GET /lookup': '번호로 가게 찾기', 'POST /sessions': '세션 열기' },
+    foot: '전화 회선과 음성은 시뮬레이션 · HTTP, Ed25519 서명, 세션은 실제로 동작<br><span class="kbd">space</span>재생 / 정지 <span class="kbd">→</span>한 단계 <span class="kbd">1–4</span>속도 <span class="kbd">r</span>처음부터 · ?at=15.2 로 특정 순간 열기 · Counter Protocol v0.1 · Apache-2.0',
+  },
+};
+const ORDER = ['handshake', 'ai-no-cp', 'human', 'direct'];
+const DTMF = { '1': [697, 1209], '2': [697, 1336], '3': [697, 1477], '4': [770, 1209], '5': [770, 1336], '6': [770, 1477],
+  '7': [852, 1209], '8': [852, 1336], '9': [852, 1477], '*': [941, 1209], '0': [941, 1336], '#': [941, 1477] };
+const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#'];
+const ROWS = [697, 770, 852, 941], COLS = [1209, 1336, 1477];
+const SYMBOL_MS = 140, TONE_MS = 80;
+const C = { caller: '#b497ff', callee: '#6cb6ff', tone: '#ffb224', data: '#2ee6c5', ok: '#3ddc84', bad: '#ff6b6b', ink: '#e8ecf3', mute: '#7d8797', dim: '#4a5262', line: '#1b212c', line2: '#262e3c' };
+const COLOR = { voice: '#8f8cff', dtmf: C.tone, net: C.data };
+
+// ============================================================ state
+const qs = new URLSearchParams(location.search);
+const S = {
+  lang: qs.get('lang') ? (qs.get('lang') === 'ko' ? 'ko' : 'en') : (navigator.language || '').startsWith('ko') ? 'ko' : 'en',
+  speed: [1, 2, 4, 8].includes(Number(qs.get('speed'))) ? Number(qs.get('speed')) : 2,
+  running: !qs.has('paused'), sound: qs.get('sound') !== '0',
+  scenario: ORDER.includes(qs.get('scenario')) ? qs.get('scenario') : 'handshake',
+  results: {}, res: null, sim: 0, last: 0, idx: 0, packets: [], F: null, ended: false, playSpeed: 2, frozen: false,
+  seek: Number(qs.get('at')) > 0 ? Number(qs.get('at')) * 1000 : 0,
+};
+const $ = (s) => document.querySelector(s);
+const T = () => I18N[S.lang];
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const sec = (ms) => `${(ms / 1000).toFixed(1)}s`;
+const ofLang = (s) => (S.results[s] && S.results[s].lang === S.lang ? S.results[s] : null);
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+let audio = null;
+
+// ============================================================ data + playback
+async function fetchRun(s, lang) { return (await fetch(`/api/run?scenario=${s}&lang=${lang}`)).json(); }
+
+async function load(scenario) {
+  S.scenario = scenario;
+  const res = ofLang(scenario) || (await fetchRun(scenario, S.lang));
+  S.results[scenario] = res; S.res = res;
+  S.calls = res.events.filter((e) => e.channel !== 'system');
+  S.bindEnd = (() => { const b = res.events.find((e) => e.channel === 'dtmf' && /BIND/.test(e.frame)); return b ? b.t + b.dur : null; })();
+  S.bookT = (() => { const b = res.events.find((e) => e.channel === 'net' && e.http.path.endsWith('/bookings')); return b ? b.t + b.dur : null; })();
+  S.acceptT = (() => { const b = res.events.find((e) => e.channel === 'net' && /\/(handshake\/accept|sessions)$/.test(e.http.path)); return b ? b.t : null; })();
+  S.callEnd = (res.events.find((e) => e.channel === 'system' && e.text !== 'call connected') || { t: res.totals.total_ms }).t;
+  if (S.seek) await prefetch();
+  restart();
+  if (S.seek) seekTo(S.seek);
+  prefetch();
+}
+
+async function prefetch() {
+  const lang = S.lang;
+  await Promise.all(ORDER.filter((s) => !ofLang(s)).map(async (s) => { const r = await fetchRun(s, lang); if (S.lang === lang) S.results[s] = r; }));
+  renderCards(); renderRace(); renderReadouts();
+}
+
+function restart() {
+  S.sim = 0; S.post = 0; S.idx = 0; S.packets = []; S.ended = false; S.last = performance.now();
+  S.F = { step: 0, checks: new Set(), frame: null, session: null, receipt: null, turns: 0, tones: 0, api: 0 };
+  S.playSpeed = S.res.totals.total_ms < 3000 ? 0.5 : S.speed;
+  $('#log').innerHTML = '';
+  renderAll(); paint();
+}
+
+function seekTo(ms) {
+  const r = S.res; S.seek = 0; S.running = false; S.frozen = true; document.body.classList.add('frozen');
+  S.sim = Math.min(ms, r.totals.total_ms);
+  while (S.idx < r.events.length && r.events[S.idx].t <= S.sim) activate(r.events[S.idx++]);
+  if (S.idx >= r.events.length && S.sim >= r.totals.total_ms) { S.ended = true; S.post = 1e9; }
+  renderAll(); paint();
+}
+
+function tick(now) {
+  const dt = Math.min(100, now - (S.last || now)); S.last = now;
+  const r = S.res;
+  if (r && S.F) {
+    if (S.running && !S.ended) S.sim += dt * S.playSpeed;
+    if (S.ended && !S.frozen) S.post += dt * S.playSpeed;
+    let changed = false;
+    while (S.idx < r.events.length && r.events[S.idx].t <= S.sim) { activate(r.events[S.idx++]); changed = true; }
+    if (!S.ended && S.idx >= r.events.length && S.sim >= r.totals.total_ms) { S.ended = true; S.sim = r.totals.total_ms; changed = true; }
+    if (changed) renderAll();
+    paint();
+  }
+  requestAnimationFrame(tick);
+}
+
+function paint() { if (!S.res || !S.F) return; drawSpec(); drawTopo(); renderLive(); }
+
+function step() {
+  const r = S.res; if (!r) return;
+  S.running = false;
+  S.sim = S.idx < r.events.length ? Math.max(S.sim, r.events[S.idx].t + 1) : r.totals.total_ms;
+  renderTransport();
+}
+
+function phaseOf(e) {
+  const p = e.http ? e.http.path : '';
+  if (e.channel === 'voice' && e.from === 'caller' && (e.intent === 'disclose' || (e.intent === 'request' && S.res.scenario !== 'human'))) return 1;
+  if (e.channel === 'dtmf' && /OFFER/.test(e.frame)) return 2;
+  if (e.channel === 'dtmf' && /BIND/.test(e.frame)) return 5;
+  if (e.channel === 'net') {
+    if (/\/rendezvous\/\d+/.test(p) || p.endsWith('/lookup')) return 3;
+    if (p.endsWith('/handshake/accept') || p.endsWith('/sessions')) return 4;
+    if (p.endsWith('/bookings')) return 7;
+    if (/\/(card|availability|holds)$/.test(p)) return 6;
+  }
+  return 0;
+}
+
+function activate(e) {
+  const F = S.F; const ph = phaseOf(e);
+  if (ph) F.step = Math.max(F.step, ph);
+  if (e.channel === 'voice') { F.turns++; if (ph === 1) F.checks.add(0); }
+  if (e.channel === 'dtmf') {
+    F.tones++; F.frame = e;
+    if (/OFFER/.test(e.frame)) F.checks.add(1);
+    if (/BIND/.test(e.frame) && S.res.outcome.handshake === 'completed') F.checks.add(4);
+    beep(e.digits);
+  }
+  if (e.channel === 'net') {
+    F.api++; S.packets.push({ e, born: performance.now() });
+    const p = e.http.path;
+    if (/\/rendezvous\/\d+/.test(p) || p.endsWith('/lookup')) F.checks.add(2);
+    if (p.endsWith('/handshake/accept') || p.endsWith('/sessions')) { F.checks.add(3); F.session = { req: e.http.request || {}, res: e.http.response || {} }; if (p.endsWith('/sessions')) F.checks.add(4); }
+    if (p.endsWith('/bookings') && e.http.status < 300) { F.receipt = e.http.response || {}; if (S.res.outcome.receipt_verified) F.checks.add(5); }
+  }
+  appendLog(e);
+}
+
+function activeEvent() {
+  for (let i = S.idx - 1; i >= 0; i--) { const e = S.res.events[i]; if (e.channel === 'system') continue; return S.sim < e.t + e.dur ? e : null; }
+  return null;
+}
+
+function mode() {
+  const r = S.res, F = S.F;
+  if (r.scenario === 'direct') return 'nocall';
+  if (r.scenario === 'human') return 'voiceonly';
+  if (r.scenario === 'ai-no-cp' && F.step >= 2 && F.turns >= 3) return 'nocarrier';
+  return 'hs';
+}
+
+// ============================================================ static renders (on event changes)
+function renderAll() { renderChrome(); renderFront(); renderCards(); renderTransport(); renderReadouts(); renderDecoderStatic(); renderTrust(); renderRace(); }
+
+function renderChrome() {
+  const t = T();
+  document.documentElement.lang = S.lang;
+  $('#tagline').innerHTML = t.tagline;
+  document.querySelectorAll('[data-i]').forEach((el) => { const v = t[el.dataset.i]; if (typeof v === 'string') el.textContent = v; });
+  $('#monR').textContent = t.monR;
+  $('#foot').innerHTML = t.foot;
+  $('#specLegend').innerHTML = t.specLegend.map((s, i) => `<span><i style="background:${['#8f8cff', C.tone, C.dim][i]}"></i>${esc(s)}</span>`).join('');
+  $('#topoLegend').innerHTML = t.topoLegend.map((s, i) => `<span><i style="background:${[C.callee, C.data, C.dim][i]}"></i>${esc(s)}</span>`).join('');
+  if (S.res) $('#assume').textContent = t.assume(S.res.assumptions);
+}
+
+function renderFront() {
+  const t = T(), F = S.F, r = S.res; if (!r || !F) return;
+  const m = mode(); const lost = m === 'nocarrier' || m === 'voiceonly'; const skip = m === 'nocall' ? [1, 2, 5] : [];
+  $('#rail').querySelectorAll('.step').forEach((n) => n.remove());
+  t.steps.forEach((s, i) => {
+    const n = i + 1; const d = document.createElement('div');
+    const isLost = lost && (m === 'voiceonly' || n > 2);
+    d.className = `step${skip.includes(n) ? ' skip' : isLost ? ' lost' : n < F.step || (n === F.step && S.ended) ? ' done' : n === F.step ? ' now' : ''}`;
+    d.innerHTML = `<i></i>${s}`; $('#rail').appendChild(d);
+  });
+  const reach = lost ? Math.min(F.step, m === 'voiceonly' ? 0 : 2) : F.step;
+  const fill = $('#railFill'); fill.className = `fill${lost ? ' bad' : ''}`;
+  fill.style.width = reach > 1 ? `${((reach - 1) / 6) * 86}%` : '0%';
+  let key = 'ready';
+  if (m === 'nocall') key = 'nocall';
+  else if (m === 'voiceonly') key = F.turns ? 'voiceonly' : 'ready';
+  else if (m === 'nocarrier') key = 'nocarrier';
+  else if (F.step >= 7 && F.receipt) key = 'connect';
+  else if (F.step >= 2) key = 'hs';
+  else if (F.turns) key = 'voice';
+  if (S.ended && key !== 'connect' && key !== 'nocarrier' && key !== 'voiceonly' && key !== 'nocall') key = 'ended';
+  const txt = key === 'hs' ? t.status.hs(F.step) : t.status[key];
+  const st = $('#statusText'); st.textContent = txt; st.className = `dotf${key === 'connect' || key === 'nocall' ? ' ok' : key === 'nocarrier' ? ' bad' : ''}`;
+  $('#statusSub').textContent = t.statusSub[key];
+}
+
+function renderCards() {
+  const t = T();
+  $('#cards').innerHTML = ORDER.map((s) => {
+    const r = ofLang(s); const tot = r ? r.totals : null; const w = (v) => (tot ? `${(v / tot.total_ms) * 100}%` : '0');
+    return `<button class="card${s === S.scenario ? ' on' : ''}" data-s="${s}"><span class="t"><b>${esc(t.cards[s][0])}</b><span class="dotf">${tot ? sec(tot.total_ms) : '--'}</span></span><small>${esc(t.cards[s][1])}</small>
+      <span class="mini">${tot ? `<i style="width:${w(tot.voice_ms)};background:${COLOR.voice}"></i><i style="width:${w(tot.dtmf_ms)};background:${C.tone}"></i><i style="width:${w(tot.net_ms)};background:${C.data}"></i>` : ''}</span></button>`;
+  }).join('');
+}
+
+function renderTransport() {
+  const t = T();
+  $('#run').textContent = S.ended ? t.replay : S.running ? t.pause : t.run;
+  $('#step').textContent = t.step; $('#restart').textContent = t.restart;
+  $('#sound').textContent = S.sound ? t.soundOn : t.soundOff;
+  document.querySelectorAll('#speed .btn').forEach((b) => b.classList.toggle('on', Number(b.dataset.v) === S.speed));
+  document.querySelectorAll('#lang .btn').forEach((b) => b.classList.toggle('on', b.dataset.v === S.lang));
+}
+
+function renderReadouts() {
+  const F = S.F, r = S.res; if (!r || !F) return;
+  $('#roTurns').textContent = F.turns; $('#roTones').textContent = F.tones; $('#roApi').textContent = F.api;
+  const hu = ofLang('human'); const el = $('#roSaved'); const box = el.parentElement;
+  box.className = 'ro ok';
+  if (r.scenario === 'direct') el.textContent = 'NO CALL';
+  else if (hu && r.scenario !== 'human') { const p = Math.round((1 - r.totals.total_ms / hu.totals.total_ms) * 100); el.textContent = `${p >= 0 ? '-' : '+'}${Math.abs(p)}%`; if (p < 0) box.className = 'ro bad'; }
+  else el.textContent = '--';
+  $('#logCount').textContent = `${S.idx} / ${r.events.length}`;
+}
+
+function frameParts(digits) {
+  const m = /\*#(\d+)#/.exec(digits || ''); if (!m) return null;
+  const d = m[1], type = d[0];
+  return { type, reg: type === '1' ? d[1] : null, code: type === '1' ? d.slice(2, 12) : type === '3' ? d.slice(1, 7) : null, check: d.slice(-1) };
+}
+
+function renderDecoderStatic() {
+  const t = T(), F = S.F, r = S.res; if (!r || !F) return;
+  const keys = $('#keys');
+  if (!keys.dataset.ready) {
+    let h = '<span></span>' + COLS.map((c) => `<span class="hz" data-hz="${c}">${c}</span>`).join('');
+    ROWS.forEach((rw, i) => { h += `<span class="hz" data-hz="${rw}">${rw}</span>` + KEYS.slice(i * 3, i * 3 + 3).map((k) => `<span class="key" data-k="${k}">${k}</span>`).join(''); });
+    keys.innerHTML = h; keys.dataset.ready = '1';
+  }
+  const badge = $('#frameBadge');
+  if (!F.frame) {
+    const none = !r.events.some((e) => e.channel === 'dtmf');
+    $('#lcdDigits').innerHTML = `<i>${none ? t.frameNone : t.frameWait}</i>`; $('#lcdDigits').style.fontSize = '18px';
+    $('#lcdFields').innerHTML = ''; badge.textContent = '--'; badge.className = 'badge'; return;
+  }
+  $('#lcdDigits').style.fontSize = '';
+  const fp = frameParts(F.frame.digits); const f = t.fields;
+  badge.textContent = { 1: 'OFFER', 2: 'PROBE', 3: 'BIND' }[fp.type]; badge.className = 'badge tone';
+  $('#lcdDigits').innerHTML = [...F.frame.digits].map((ch, i) => `<i data-n="${i}">${esc(ch)}</i>`).join('');
+  const parts = [`${f.type} <b>${fp.type}</b>`];
+  if (fp.reg !== null) parts.push(`${f.reg} <b>${fp.reg}</b>`);
+  if (fp.code) parts.push(`${fp.type === '3' ? f.bind : f.code} <b>${fp.code}</b>`);
+  parts.push(`${f.luhn} <b class="okc">${fp.check} ✓</b>`);
+  $('#lcdFields').innerHTML = parts.map((p) => `<span>${p}</span>`).join('');
+}
+
+function renderTrust() {
+  const t = T(), F = S.F, r = S.res; if (!r || !F) return;
+  const skip = r.scenario === 'direct' ? [0, 1] : [];
+  $('#checks').innerHTML = t.checks.map((c, i) => `<div class="ck${F.checks.has(i) ? ' on' : ''}${skip.includes(i) ? ' skip' : ''}"><svg viewBox="0 0 18 18"><circle cx="9" cy="9" r="8"/><path d="M5 9.4l2.6 2.5L13 6.6"/></svg>${esc(c)}</div>`).join('');
+  const s = F.session, b = $('#trustBadge');
+  if (!s) {
+    b.textContent = r.outcome.via === 'voice' ? 'VOICE' : '--'; b.className = r.outcome.via === 'voice' ? 'badge tone' : 'badge';
+    $('#kv').innerHTML = ['trust', 'principal', 'scope', 'session'].map((k) => `<dt>${t.kv[k]}</dt><dd>—</dd>`).join(''); return;
+  }
+  const m = (s.req.mandate && s.req.mandate.payload) || {}; const trust = s.res.trust || '—';
+  b.textContent = String(trust).toUpperCase(); b.className = 'badge ok';
+  const rows = [['trust', esc(trust)], ['principal', esc(m.sub || '—')], ['scope', (m.scope || []).map((x) => `<span class="chip">${esc(x)}</span>`).join('')], ['session', esc(s.req.session_id || s.res.session_id || '—')]];
+  if (s.res.bind_code) rows.push(['bind', esc(s.res.bind_code)]);
+  $('#kv').innerHTML = rows.map(([k, v]) => `<dt>${t.kv[k]}</dt><dd>${v}</dd>`).join('');
+}
+
+function renderRace() {
+  const t = T(); const done = ORDER.filter((s) => ofLang(s));
+  const max = Math.max(1, ...done.map((s) => S.results[s].totals.total_ms));
+  $('#lanes').innerHTML = done.map((s) => {
+    const x = S.results[s].totals; const w = (v) => `${(v / max) * 100}%`;
+    return `<div class="lane${s === S.scenario ? ' cur' : ''}" data-lane="${s}"><div class="top2"><span>${esc(t.lanes[s])}</span><span class="dotf">${sec(x.total_ms)}</span></div>
+      <div class="track"><i style="width:${w(x.voice_ms)};background:${COLOR.voice}"></i><i style="width:${w(x.dtmf_ms)};background:${C.tone}"></i><i style="width:${w(x.net_ms)};background:${C.data}"></i>${s === S.scenario ? '<span class="head" id="head"></span>' : ''}</div></div>`;
+  }).join('');
+  const hs = ofLang('handshake'), hu = ofLang('human');
+  $('#callout').innerHTML = hs && hu ? t.callout(Math.round((1 - hs.totals.total_ms / hu.totals.total_ms) * 100), sec(hs.totals.total_ms), sec(hu.totals.total_ms)) : '';
+}
+
+function appendLog(e) {
+  const t = T(), log = $('#log');
+  log.querySelectorAll('.now').forEach((n) => n.classList.remove('now'));
+  let who, cls, x, extra = '';
+  if (e.channel === 'voice') { who = e.from === 'caller' ? t.caller : t.callee; cls = e.from; x = esc(e.text); }
+  else if (e.channel === 'dtmf') { who = '♫ ' + t.tone; cls = 'tone'; x = `${esc(e.frame)} <b>${esc(e.digits)}</b>`; }
+  else if (e.channel === 'net') {
+    who = t.data; cls = 'data'; const h = e.http; const path = h.path.replace('/cp/v0.1', '');
+    const key = `${h.method} ${path.replace(/\/rendezvous\/\d+/, '/rendezvous')}`;
+    x = `${esc(e.from)} → ${esc(e.to)} <b>${esc(h.method)} ${esc(path)}</b> ${h.status}<span class="what">${esc(t.what[key] || '')}</span>`;
+    extra = `<pre hidden>${esc(JSON.stringify({ request: h.request, response: h.response }, null, 2))}</pre>`;
+  } else { who = '·'; cls = 'sys'; x = esc(e.text); }
+  log.insertAdjacentHTML('beforeend', `<div class="lg ${cls} now"><span class="t">${sec(e.t)}</span><span class="w ${cls}">${esc(who)}</span><span class="x">${x}</span>${extra}</div>`);
+  log.scrollTop = log.scrollHeight;
+}
+
+// ============================================================ live renders (every frame)
+function renderLive() {
+  const t = T(), r = S.res, F = S.F, a = activeEvent();
+  const ms = Math.min(S.sim, r.totals.total_ms);
+  $('#clock').textContent = `${String(Math.floor(ms / 60000)).padStart(2, '0')}:${((ms % 60000) / 1000).toFixed(1).padStart(4, '0')}`;
+  // LEDs
+  const onCall = r.scenario !== 'direct' && S.sim > 0 && S.sim < S.callEnd;
+  const flick = (k) => (reduced ? true : Math.sin(S.sim * 0.05 + k) > -0.2);
+  const led = { OH: onCall, VO: a && a.channel === 'voice' && S.sim > a.t + r.assumptions.turn_gap_ms && flick(1), TN: a && a.channel === 'dtmf' && (S.sim - a.t) % SYMBOL_MS < TONE_MS, DA: liveNet().length > 0 && flick(3), LK: S.bindEnd != null && S.sim >= S.bindEnd && r.outcome.handshake === 'completed' || (r.scenario === 'direct' && S.sim >= (S.acceptT || 0) && S.F.session) };
+  const colors = { OH: C.ok, VO: COLOR.voice, TN: C.tone, DA: C.data, LK: C.ok };
+  const L = $('#leds');
+  if (!L.dataset.ready) { L.innerHTML = Object.keys(led).map((k) => `<span class="led" data-k="${k}" style="--c:${colors[k]}" title="${esc(t.ledTitle[k])}"><i></i>${k}</span>`).join(''); L.dataset.ready = '1'; }
+  L.querySelectorAll('.led').forEach((el) => el.classList.toggle('on', !!led[el.dataset.k]));
+  // caption
+  const who = $('#who'), say = $('#say');
+  if (r.scenario === 'direct') { setCap(who, say, 'data', t.data, esc(t.lineNoCall), true); }
+  else if (!a) { setCap(who, say, 'sys', t.line, esc(S.ended || S.sim >= S.callEnd ? t.lineEnded : t.lineIdle), true); }
+  else if (a.channel === 'voice') {
+    const gap = r.assumptions.turn_gap_ms; const chars = [...a.text];
+    const n = reduced ? chars.length : Math.max(0, Math.min(chars.length, Math.floor((S.sim - a.t - gap) / r.assumptions.ms_per_char)));
+    const body = S.sim < a.t + gap && !reduced ? '<span class="think"><i></i><i></i><i></i></span>' : esc(chars.slice(0, n).join('')) + (n < chars.length ? '<span class="caret"></span>' : '');
+    setCap(who, say, a.from, a.from === 'caller' ? t.caller : t.callee, body, false);
+  } else if (a.channel === 'dtmf') {
+    const k = Math.floor((S.sim - a.t) / SYMBOL_MS) + 1;
+    setCap(who, say, 'tone', '♫ ' + t.tone, `${esc(a.frame)} &nbsp;${esc(a.digits.slice(0, k))}<span class="caret"></span>`, true);
+  } else {
+    setCap(who, say, 'data', t.data, `${esc(a.http.method)} ${esc(a.http.path.replace('/cp/v0.1', '').replace(/\/rendezvous\/\d+/, '/rendezvous/…'))} → ${a.http.status}`, true);
+  }
+  // decoder live
+  let key = null, idx = -1;
+  if (a && a.channel === 'dtmf') { idx = Math.floor((S.sim - a.t) / SYMBOL_MS); if ((S.sim - a.t) % SYMBOL_MS < TONE_MS) key = a.digits[idx] || null; }
+  document.querySelectorAll('#keys .key').forEach((el) => el.classList.toggle('on', el.dataset.k === key));
+  const f = key ? DTMF[key] : null;
+  document.querySelectorAll('#keys .hz').forEach((el) => el.classList.toggle('on', !!f && f.includes(Number(el.dataset.hz))));
+  $('#hz').textContent = f ? `${f[0]}+${f[1]} HZ` : '';
+  const playing = a && F.frame && a === F.frame;
+  document.querySelectorAll('#lcdDigits i[data-n]').forEach((el) => { const n = Number(el.dataset.n); el.className = playing ? (n === idx ? 'on' : n < idx ? 'done' : '') : 'done'; });
+  const big = $('#bigdigit'); big.textContent = key || ''; big.style.opacity = key ? 1 : 0;
+  // receipt printing (driven by the sim clock so seeking and screenshots are deterministic)
+  renderReceipt();
+  // race playhead + topo label
+  const head = $('#head'); if (head) { const max = Math.max(...ORDER.filter((s) => ofLang(s)).map((s) => S.results[s].totals.total_ms)); head.style.left = `calc(${(Math.min(S.sim, r.totals.total_ms) / max) * 100}% - 1px)`; }
+  $('#topoR').textContent = r.scenario === 'direct' ? t.topoR.nocall : led.LK ? t.topoR.bound : S.acceptT != null && S.sim >= S.acceptT ? t.topoR.link : t.topoR.idle;
+}
+
+function setCap(who, say, cls, label, html, mono) {
+  if (who.dataset.cls !== cls) { who.className = `who ${cls}`; who.dataset.cls = cls; }
+  if (who.textContent !== label) who.textContent = label;
+  if (say.dataset.html !== html) { say.innerHTML = html; say.dataset.html = html; }
+  say.classList.toggle('mono', mono);
+}
+
+function renderReceipt() {
+  const t = T(), r = S.res, F = S.F, rc = t.rc; const wrap = $('#paperwrap'); const b = $('#rcptBadge');
+  let state, rows = [], printed = 0, stamp = '';
+  if (r.outcome.via !== 'agent-api') {
+    state = S.idx > 3 || S.ended ? 'void' : 'wait';
+  } else if (!F.receipt || S.bookT == null) state = 'wait';
+  else {
+    state = 'print';
+    const p = (F.receipt.receipt && F.receipt.receipt.payload) || {}; const o = r.outcome.booking || {};
+    const money = (n) => p.currency === 'KRW' ? (S.lang === 'ko' ? `${Number(n).toLocaleString('ko-KR')}원` : `₩${Number(n).toLocaleString('en-US')}`) : `$${Number(n).toLocaleString('en-US')}`;
+    const start = ((p.slot || {}).start || '').replace('T', ' ').replace(/:00([+-]\d\d:\d\d)$/, ' $1');
+    rows = [
+      `<div class="ctr big">${esc(r.business.name)}</div>`, `<div class="ctr mute">${esc(r.business.tel)}</div>`, '<hr>',
+      `<div class="ctr big">${rc.booked}</div>`, '<hr>',
+      ln(rc.service, o.service), ln(rc.start, start), ln(rc.staff, o.staff), ln(rc.price, money(p.price)), ln(rc.fee, money(p.fee || 0)), '<hr>',
+      ln(rc.id, p.booking_id), ln(rc.agent, p.agent_id), '<hr>',
+      `<div class="ctr mute">${rc.signed}</div>`, `<div class="bars">${barcode(p.booking_id || 'x')}</div>`, `<div class="ctr mute" style="margin-top:6px">${esc(rc.thanks)}</div>`,
+    ];
+    printed = Math.max(0, Math.floor((S.sim + (S.post || 0) - S.bookT) / 70));
+    if (printed >= rows.length + 3 && r.outcome.receipt_verified) stamp = `<div class="stamp show">${rc.verified}<small>${rc.vsub}</small></div>`;
+  }
+  const keyState = `${state}:${S.lang}:${Math.min(printed, rows.length + 3)}`;
+  if (wrap.dataset.k === keyState) return;
+  wrap.dataset.k = keyState;
+  if (state === 'wait') { wrap.innerHTML = `<div class="slot"></div><div class="paper empty"><div class="ctr">${esc(rc.waiting)}</div></div>`; b.textContent = '--'; b.className = 'badge'; return; }
+  if (state === 'void') {
+    wrap.innerHTML = `<div class="slot"></div><div class="paper empty"><div class="ctr big" style="color:var(--paper-ink)">${rc.title}</div><hr><div class="ctr" style="line-height:1.6">${rc.voiceBody}</div><hr><div class="ctr">— — —</div><div class="stamp bad show">${rc.unsigned}<small>${rc.usub}</small></div></div>`;
+    b.textContent = 'UNSIGNED'; b.className = 'badge tone'; return;
+  }
+  wrap.innerHTML = `<div class="slot${printed < rows.length ? ' busy' : ''}"></div><div class="paper">${rows.map((h, i) => `<div class="row${i < printed ? ' show' : ''}">${h}</div>`).join('')}${stamp}</div>`;
+  b.textContent = stamp ? '✓ VERIFIED' : 'PRINTING'; b.className = stamp ? 'badge ok' : 'badge tone';
+}
+function ln(k, v) { return `<div class="ln"><span class="mute">${esc(k)}</span><span>${esc(v)}</span></div>`; }
+function barcode(seed) { let h = 2166136261; for (const c of seed) h = Math.imul(h ^ c.charCodeAt(0), 16777619); let out = ''; for (let i = 0; i < 46; i++) { h = Math.imul(h ^ (h >>> 13), 0x5bd1e995); out += `<i style="width:${1 + ((h >>> 3) & 3)}px"></i>`; if ((h >>> 9) & 1) out += '<span style="width:2px"></span>'; } return out; }
+
+// ============================================================ spectrogram (synthesised from the timeline)
+const spec = $('#spec'), sx = spec.getContext('2d'), topo = $('#topo'), tx = topo.getContext('2d');
+const WINDOW_MS = 8000, F_MAX = 1600, BINS = 120;
+let specImg = null, specOff = null;
+const LUT = (() => {
+  const stops = [[0, [6, 8, 11]], [0.16, [16, 24, 46]], [0.36, [44, 52, 128]], [0.56, [120, 86, 220]], [0.76, [255, 164, 40]], [1, [255, 246, 220]]];
+  const lut = new Uint8ClampedArray(256 * 3);
+  for (let i = 0; i < 256; i++) {
+    const v = i / 255; let k = 0; while (k < stops.length - 2 && v > stops[k + 1][0]) k++;
+    const [a, ca] = stops[k], [b, cb] = stops[k + 1]; const u = (v - a) / (b - a);
+    for (let c = 0; c < 3; c++) lut[i * 3 + c] = ca[c] + (cb[c] - ca[c]) * u;
+  }
+  return lut;
+})();
+function hash(a, b) { let h = Math.imul(a | 0, 374761393) + Math.imul(b | 0, 668265263); h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967295; }
+const gauss = (x, m, s) => Math.exp(-((x - m) * (x - m)) / (2 * s * s));
+function fit(cv, ctx) { const b = cv.getBoundingClientRect(), d = devicePixelRatio || 1; cv.width = Math.max(1, Math.round(b.width * d)); cv.height = Math.max(1, Math.round(b.height * d)); ctx.setTransform(d, 0, 0, d, 0, 0); }
+function fitAll() { fit(spec, sx); fit(topo, tx); specImg = null; }
+addEventListener('resize', fitAll);
+
+function eventAt(t) {
+  const calls = S.calls; let lo = 0, hi = calls.length - 1;
+  while (lo < hi) { const mid = (lo + hi) >> 1; if (calls[mid].t + calls[mid].dur <= t) lo = mid + 1; else hi = mid; }
+  const e = calls[lo];
+  return e && e.t <= t && t < e.t + e.dur ? e : null;
+}
+
+/** One spectrogram column (LUT indices, low frequency last). Deterministic, so finished columns are cached. */
+function column(t, bucket) {
+  const r = S.res, a = r.assumptions, out = new Uint8Array(BINS);
+  const noCall = r.scenario === 'direct';
+  const e = t >= 0 && !noCall && t < S.callEnd ? eventAt(t) : null;
+  let kind = 0, f1 = 0, f2 = 0, env = 0, f0 = 0, F1 = 0, F2 = 0;
+  if (e && e.channel === 'voice' && t > e.t + a.turn_gap_ms) {
+    const chars = [...e.text]; const ci = Math.floor((t - e.t - a.turn_gap_ms) / a.ms_per_char); const ch = chars[Math.min(ci, chars.length - 1)] || ' ';
+    const syl = Math.floor((t - e.t) / (a.ms_per_char * 2.6));
+    env = /[\s,.!?]/.test(ch) ? 0.08 : 0.55 + 0.45 * Math.sin(((t - e.t) / (a.ms_per_char * 2.6)) * Math.PI) ** 2;
+    f0 = (e.from === 'caller' ? 205 : 150) * (1 + 0.06 * Math.sin(t * 0.004));
+    F1 = 320 + 480 * hash(syl, 7); F2 = 1050 + 900 * hash(syl, 13); kind = 1;
+  } else if (e && e.channel === 'dtmf') {
+    const k = Math.floor((t - e.t) / SYMBOL_MS); const d = DTMF[e.digits[k]];
+    if (d && (t - e.t) % SYMBOL_MS < TONE_MS) { [f1, f2] = d; kind = 2; }
+  }
+  const floor = t < 0 || noCall ? 0.02 : 0.05;
+  for (let b = 0; b < BINS; b++) {
+    const f = ((b + 0.5) / BINS) * F_MAX;
+    let v = floor * (0.6 + 0.8 * hash(bucket, b));
+    if (kind === 1) {
+      const harm = Math.pow(0.5 + 0.5 * Math.cos((2 * Math.PI * f) / f0), 6);
+      const form = 0.95 * gauss(f, F1, 150) + 0.7 * gauss(f, F2, 230) + 0.18 * gauss(f, 2100, 300);
+      v += env * (0.25 + 0.75 * harm) * form * (0.75 + 0.5 * hash(bucket, b + 99)) * (f < 90 ? 0.1 : 1);
+    } else if (kind === 2) {
+      v += 1.05 * (gauss(f, f1, 11) + gauss(f, f2, 11)) + 0.08 * (gauss(f, f1, 50) + gauss(f, f2, 50));
+    }
+    out[BINS - 1 - b] = Math.round(Math.min(1, v) * 255);
+  }
+  return out;
+}
+
+function drawSpec() {
+  const w = spec.clientWidth, h = spec.clientHeight, r = S.res; if (!w) return;
+  const cols = Math.max(80, Math.floor(w / 2)), msPerCol = WINDOW_MS / cols;
+  if (!specImg || specImg.width !== cols) { specImg = sx.createImageData(cols, BINS); specOff = document.createElement('canvas'); specOff.width = cols; specOff.height = BINS; }
+  const key = `${cols}:${r.scenario}:${r.lang}:${r.events.length}:${r.totals.total_ms}`;
+  if (S.specKey !== key) { S.specKey = key; S.specCache = new Map(); }
+  const data = specImg.data, cache = S.specCache;
+  const last = Math.floor(S.sim / msPerCol), first = last - cols + 1;
+  for (let c = 0; c < cols; c++) {
+    const bucket = first + c; let col = cache.get(bucket);
+    if (!col) { col = column(bucket * msPerCol, bucket); cache.set(bucket, col); }
+    for (let y = 0; y < BINS; y++) { const li = col[y] * 3, o = (y * cols + c) * 4; data[o] = LUT[li]; data[o + 1] = LUT[li + 1]; data[o + 2] = LUT[li + 2]; data[o + 3] = 255; }
+  }
+  if (cache.size > cols * 3) for (const k of cache.keys()) if (k < first) cache.delete(k);
+  const noCall = r.scenario === 'direct';
+  specOff.getContext('2d').putImageData(specImg, 0, 0);
+  sx.clearRect(0, 0, w, h); sx.imageSmoothingEnabled = true; sx.drawImage(specOff, 0, 0, w, h);
+  // DTMF guide lines + labels
+  sx.font = '500 9.5px "Geist Mono", monospace'; sx.textAlign = 'left';
+  const labelled = h < 220 ? [697, 941, 1209, 1477] : [...ROWS, ...COLS];
+  [...ROWS, ...COLS].forEach((hz) => {
+    const y = h - (hz / F_MAX) * h; sx.strokeStyle = 'rgba(255,178,36,.16)'; sx.setLineDash([2, 5]); sx.beginPath(); sx.moveTo(44, y); sx.lineTo(w, y); sx.stroke(); sx.setLineDash([]);
+    if (labelled.includes(hz)) { sx.fillStyle = 'rgba(255,178,36,.55)'; sx.fillText(`${hz}`, 8, y + 3); }
+  });
+  sx.fillStyle = 'rgba(125,135,151,.7)'; sx.fillText('Hz', 8, 14);
+  // time ticks
+  for (let s = 0; s <= 8; s++) { const x = w - (s * 1000 / WINDOW_MS) * w; sx.fillStyle = 'rgba(125,135,151,.45)'; sx.fillRect(x - 0.5, h - 6, 1, 6); if (s && s < 8) sx.fillText(`-${s}s`, x + 3, h - 8); }
+  // now cursor
+  const grad = sx.createLinearGradient(w - 60, 0, w, 0); grad.addColorStop(0, 'rgba(46,230,197,0)'); grad.addColorStop(1, 'rgba(46,230,197,.18)');
+  sx.fillStyle = grad; sx.fillRect(w - 60, 0, 60, h); sx.fillStyle = C.data; sx.fillRect(w - 2, 0, 2, h);
+  if (noCall) { sx.fillStyle = 'rgba(125,135,151,.85)'; sx.font = '600 11px "Geist Mono", monospace'; sx.textAlign = 'center'; sx.fillText('NO PHONE CALL · DATA ONLY', w / 2, h / 2); }
+}
+
+// ============================================================ topology
+function liveNet() {
+  const r = S.res; const out = [];
+  for (let i = S.idx - 1; i >= 0; i--) { const e = r.events[i]; if (e.channel !== 'net') continue; const age = (S.sim - e.t) / Math.max(0.5, S.frozen ? 2 : S.playSpeed); if (age > 1100) break; out.unshift({ e, prog: age / 1100 }); }
+  if (S.frozen) return out;
+  const now = performance.now(); S.packets = S.packets.filter((p) => now - p.born < 1100);
+  return S.packets.map((p) => ({ e: p.e, prog: (now - p.born) / 1100 }));
+}
+
+function drawTopo() {
+  const w = topo.clientWidth, h = topo.clientHeight, r = S.res, t = T(), ctx = tx; if (!w) return;
+  ctx.clearRect(0, 0, w, h);
+  const A = [82, h - 64], B = [w - 82, h - 64], G = [w / 2, 42];
+  const a = activeEvent(); const direct = r.scenario === 'direct';
+  const linkUp = S.acceptT != null && S.sim >= S.acceptT; const bound = (S.bindEnd != null && S.sim >= S.bindEnd && r.outcome.handshake === 'completed') || (direct && linkUp);
+  // registry spokes
+  [A, B].forEach((P) => { ctx.strokeStyle = 'rgba(74,82,98,.55)'; ctx.lineWidth = 1; ctx.setLineDash([3, 5]); ctx.beginPath(); ctx.moveTo(P[0], P[1] - 18); ctx.quadraticCurveTo((P[0] + G[0]) / 2, G[1] + 30, G[0], G[1] + 16); ctx.stroke(); });
+  ctx.setLineDash([]);
+  // phone line (bottom)
+  if (!direct) {
+    const lineColor = a && a.channel === 'voice' ? (a.from === 'caller' ? C.caller : C.callee) : a && a.channel === 'dtmf' ? C.tone : C.line2;
+    const active = a && (a.channel === 'voice' || a.channel === 'dtmf') && S.sim < S.callEnd;
+    ctx.save(); if (active) { ctx.shadowColor = lineColor; ctx.shadowBlur = 12; }
+    ctx.strokeStyle = active ? lineColor : C.line2; ctx.lineWidth = active ? 2 : 1.5; ctx.setLineDash(active ? [10, 7] : S.sim >= S.callEnd ? [2, 6] : []); ctx.lineDashOffset = -S.sim * (a && a.from === 'callee' ? -0.06 : 0.06);
+    ctx.beginPath(); ctx.moveTo(A[0] + 28, A[1]); ctx.lineTo(B[0] - 28, B[1]); ctx.stroke(); ctx.restore(); ctx.setLineDash([]);
+    label(ctx, S.sim >= S.callEnd ? '— on hook —' : 'PSTN', (A[0] + B[0]) / 2, A[1] + 18, C.dim, 9.5);
+  }
+  // data link (arc)
+  const arcY = A[1] - 120;
+  if (linkUp) {
+    const fade = Math.min(1, (S.sim - S.acceptT) / 400);
+    ctx.save(); ctx.globalAlpha = fade; ctx.shadowColor = C.data; ctx.shadowBlur = bound ? 14 : 4;
+    ctx.strokeStyle = C.data; ctx.lineWidth = bound ? 2.2 : 1.4; ctx.setLineDash(bound ? [] : [5, 5]);
+    ctx.beginPath(); ctx.moveTo(A[0], A[1] - 26); ctx.quadraticCurveTo((A[0] + B[0]) / 2, arcY - 40, B[0], B[1] - 26); ctx.stroke(); ctx.restore(); ctx.setLineDash([]);
+    if (bound) {
+      const mx = (A[0] + B[0]) / 2, my = (A[1] - 26 + 2 * (arcY - 40) + B[1] - 26) / 4;
+      ctx.fillStyle = '#07120f'; ctx.strokeStyle = C.data; ctx.lineWidth = 1.2; rr(ctx, mx - 44, my - 12, 88, 24, 12); ctx.fill(); ctx.stroke();
+      lock(ctx, mx - 28, my, C.data); label(ctx, t.nodes.bound, mx + 8, my + 3.5, C.data, 10);
+    }
+  }
+  // bind ripple
+  if (S.bindEnd != null && S.sim >= S.bindEnd && S.sim < S.bindEnd + 1500 && r.outcome.handshake === 'completed') {
+    const p = (S.sim - S.bindEnd) / 1500;
+    [A, B].forEach((P) => { ctx.strokeStyle = `rgba(46,230,197,${0.6 * (1 - p)})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(P[0], P[1], 26 + p * 46, 0, Math.PI * 2); ctx.stroke(); });
+  }
+  // packets
+  const nets = liveNet();
+  nets.forEach(({ e, prog }, i) => packet(ctx, e, prog, A, B, G, arcY, i));
+  // nodes
+  const regUsed = r.events.slice(0, S.idx).some((e) => e.to === 'registry' || e.from === 'registry');
+  node(ctx, G, t.nodes.registry, '', regUsed ? C.data : C.dim, false, 'reg');
+  const callerSpeaking = a && a.channel === 'voice' && a.from === 'caller' && S.sim > a.t + r.assumptions.turn_gap_ms;
+  const calleeSpeaking = a && a.channel === 'voice' && a.from === 'callee' && S.sim > a.t + r.assumptions.turn_gap_ms;
+  node(ctx, A, r.scenario === 'human' ? t.nodes.person : t.nodes.caller, r.principal, C.caller, callerSpeaking, 'caller');
+  node(ctx, B, t.nodes.callee, r.business.name, C.callee, calleeSpeaking || (a && a.channel === 'dtmf' && a.from === 'callee'), 'shop');
+}
+
+function packet(ctx, e, prog, A, B, G, arcY, i) {
+  const pt = (who) => (who === 'caller' ? [A[0], A[1] - 26] : who === 'registry' ? [G[0], G[1] + 16] : [B[0], B[1] - 26]);
+  const from = pt(e.from), to = pt(e.to); const reg = e.from === 'registry' || e.to === 'registry';
+  const ctrl = reg ? [(from[0] + to[0]) / 2, G[1] + 30] : [(A[0] + B[0]) / 2, arcY - 40];
+  const go = prog < 0.5, q = go ? prog * 2 : (prog - 0.5) * 2; const [s0, s1] = go ? [from, to] : [to, from];
+  const at = (u) => [(1 - u) * (1 - u) * s0[0] + 2 * (1 - u) * u * ctrl[0] + u * u * s1[0], (1 - u) * (1 - u) * s0[1] + 2 * (1 - u) * u * ctrl[1] + u * u * s1[1]];
+  const col = go ? C.data : C.ok;
+  for (let k = 6; k >= 0; k--) { const u = Math.max(0, q - k * 0.035); const [x, y] = at(u); ctx.globalAlpha = (1 - k / 7) * 0.9; ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x, y, 4.2 - k * 0.45, 0, Math.PI * 2); ctx.fill(); }
+  ctx.globalAlpha = 1; const [x, y] = at(q);
+  ctx.save(); ctx.shadowColor = col; ctx.shadowBlur = 16; ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x, y, 2, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+  if (i === 0 || prog < 0.5) {
+    const s = `${e.http.method} ${e.http.path.replace('/cp/v0.1', '').replace(/\/rendezvous\/\d+/, '/rendezvous/…')}`;
+    if (i === liveNet().length - 1) label(ctx, `${s} · ${e.http.status}`, (A[0] + B[0]) / 2, reg ? G[1] + 46 : arcY - 2, C.data, 10);
+  }
+}
+
+function node(ctx, [x, y], name, sub, color, speaking, kind) {
+  const wBox = kind === 'reg' ? 96 : 120, hBox = kind === 'reg' ? 30 : 46;
+  ctx.save();
+  if (speaking) { ctx.shadowColor = color; ctx.shadowBlur = 26; }
+  ctx.fillStyle = '#0b0e14'; ctx.strokeStyle = speaking ? color : kind === 'reg' ? color : C.line2; ctx.lineWidth = speaking ? 1.8 : 1.2;
+  rr(ctx, x - wBox / 2, y - hBox / 2, wBox, hBox, 12); ctx.fill(); ctx.stroke(); ctx.restore();
+  if (speaking) { for (let k = 0; k < 3; k++) { const p = ((S.sim / 900 + k / 3) % 1); ctx.strokeStyle = color; ctx.globalAlpha = (1 - p) * 0.5; ctx.lineWidth = 1.2; rr(ctx, x - wBox / 2 - p * 14, y - hBox / 2 - p * 14, wBox + p * 28, hBox + p * 28, 12 + p * 10); ctx.stroke(); } ctx.globalAlpha = 1; }
+  ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x - wBox / 2 + 14, y - (kind === 'reg' ? 0 : 7), 3.5, 0, Math.PI * 2); ctx.fill();
+  label(ctx, name, x + 6, y + (kind === 'reg' ? 3.5 : -3), C.ink, 10, 700);
+  if (sub) label(ctx, sub.length > 18 ? sub.slice(0, 17) + '…' : sub, x + 6, y + 12, C.mute, 9.5, 500);
+}
+
+function lock(ctx, x, y, c) { ctx.strokeStyle = c; ctx.fillStyle = c; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.arc(x, y - 3, 3.2, Math.PI, 0); ctx.stroke(); ctx.fillRect(x - 4.5, y - 3, 9, 7); }
+function rr(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); }
+function label(ctx, s, x, y, c, size = 10, weight = 600) { ctx.fillStyle = c; ctx.font = `${weight} ${size}px "Geist Mono", ui-monospace, monospace`; ctx.textAlign = 'center'; ctx.fillText(s, x, y); }
+
+// ============================================================ sound (real DTMF)
+function beep(digits) {
+  if (!S.sound || !S.running) return;
+  try {
+    audio = audio || new AudioContext();
+    const k = Math.max(1, S.playSpeed / 1.5), step = SYMBOL_MS / 1000 / k, len = 0.08 / k;
+    [...digits].forEach((ch, i) => {
+      const f = DTMF[ch]; if (!f) return;
+      const at = audio.currentTime + 0.02 + i * step, g = audio.createGain();
+      g.gain.setValueAtTime(0, at); g.gain.linearRampToValueAtTime(0.07, at + 0.005); g.gain.setValueAtTime(0.07, at + len - 0.01); g.gain.linearRampToValueAtTime(0, at + len); g.connect(audio.destination);
+      f.forEach((hz) => { const o = audio.createOscillator(); o.frequency.value = hz; o.connect(g); o.start(at); o.stop(at + len + 0.01); });
+    });
+  } catch { /* no audio */ }
+}
+
+// ============================================================ wiring
+document.addEventListener('click', (ev) => {
+  const el = ev.target.closest('button, .lg.data'); if (!el) return;
+  if (el.classList.contains('lg')) { const pre = el.querySelector('pre'); if (pre) pre.hidden = !pre.hidden; return; }
+  if (el.id === 'run') { S.frozen = false; document.body.classList.remove('frozen'); if (S.ended) { restart(); S.running = true; } else S.running = !S.running; renderTransport(); return; }
+  if (el.id === 'step') return step();
+  if (el.id === 'restart') { S.frozen = false; document.body.classList.remove('frozen'); S.running = true; restart(); return; }
+  if (el.id === 'sound') { S.sound = !S.sound; renderTransport(); return; }
+  if (el.dataset.s) { S.frozen = false; document.body.classList.remove('frozen'); S.running = true; load(el.dataset.s); return; }
+  if (el.parentElement.id === 'speed') { S.speed = Number(el.dataset.v); if (S.res) S.playSpeed = S.res.totals.total_ms < 3000 ? 0.5 : S.speed; renderTransport(); return; }
+  if (el.parentElement.id === 'lang') { S.lang = el.dataset.v; S.running = true; S.frozen = false; document.body.classList.remove('frozen'); $('#leds').dataset.ready = ''; renderChrome(); load(S.scenario); }
+});
+document.addEventListener('keydown', (ev) => {
+  if (ev.code === 'Space') { ev.preventDefault(); $('#run').click(); }
+  else if (ev.key === 'ArrowRight') step();
+  else if (['1', '2', '3', '4'].includes(ev.key)) document.querySelectorAll('#speed .btn')[Number(ev.key) - 1].click();
+  else if (ev.key === 'r' || ev.key === 'R') $('#restart').click();
+});
+
+fitAll(); renderChrome(); renderTransport();
+requestAnimationFrame(tick);
+load(S.scenario);
+</script>
+</body>
+</html>
