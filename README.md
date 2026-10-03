@@ -32,9 +32,7 @@ The shop's AI hears a caller say it is an AI, plays a 16-digit OFFER frame, and 
 
 A voice booking leaves nothing to check. A handshake booking leaves a business-signed receipt, plus a record of who the agent was and what it was allowed to do.
 
-![With the protocol: the data link is bound to the call and the printed receipt carries a verified signature](docs/trust.webp)
-
-![Without the protocol: the OFFER was ignored, the booking happened by voice, and the receipt is stamped UNSIGNED](docs/unsigned.webp)
+![Side by side. With the handshake: all six trust checks pass and the printed receipt is stamped VERIFIED. Without the protocol: the OFFER was ignored, the booking happened by voice, and the receipt is stamped UNSIGNED](docs/proof.webp)
 
 ## Honest numbers
 
@@ -75,7 +73,7 @@ What these numbers are and are not:
 - URL options: `?scenario=handshake|ai-no-cp|human|direct`, `?lang=en|ko`, `?speed=4`, `?sound=0`, `?paused`, and `?at=15.2` to open paused at a moment you want to share.
 - Works on phones, and respects *reduce motion*.
 
-<p align="center"><img src="docs/mobile.webp" width="300" alt="The playground on a 390 px wide phone screen"></p>
+![The playground on three phones: the front panel with the four call paths, the spectrogram and topology, and a signed receipt in Korean](docs/phones.webp)
 
 ## Run locally
 
