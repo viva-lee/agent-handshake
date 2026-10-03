@@ -440,7 +440,7 @@ const COLOR = { voice: '#8f8cff', dtmf: C.tone, net: C.data };
 // ============================================================ state
 const qs = new URLSearchParams(location.search);
 const S = {
-  lang: qs.get('lang') ? (qs.get('lang') === 'ko' ? 'ko' : 'en') : (navigator.language || '').startsWith('ko') ? 'ko' : 'en',
+  lang: qs.get('lang') === 'ko' ? 'ko' : 'en', // English by default; ?lang=ko or the toggle for Korean
   speed: [1, 2, 4, 8].includes(Number(qs.get('speed'))) ? Number(qs.get('speed')) : 2,
   running: !qs.has('paused'), sound: qs.get('sound') !== '0',
   scenario: ORDER.includes(qs.get('scenario')) ? qs.get('scenario') : 'handshake',
@@ -1012,7 +1012,7 @@ document.addEventListener('click', (ev) => {
   if (el.id === 'sound') { S.sound = !S.sound; renderTransport(); return; }
   if (el.dataset.s) { S.frozen = false; document.body.classList.remove('frozen'); S.running = true; load(el.dataset.s); return; }
   if (el.parentElement.id === 'speed') { S.speed = Number(el.dataset.v); if (S.res) S.playSpeed = S.res.totals.total_ms < 3000 ? 0.5 : S.speed; renderTransport(); return; }
-  if (el.parentElement.id === 'lang') { S.lang = el.dataset.v; S.running = true; S.frozen = false; document.body.classList.remove('frozen'); $('#leds').dataset.ready = ''; renderChrome(); load(S.scenario); }
+  if (el.parentElement.id === 'lang') { S.lang = el.dataset.v; const u = new URL(location.href); if (S.lang === 'ko') u.searchParams.set('lang', 'ko'); else u.searchParams.delete('lang'); history.replaceState(null, '', u); S.running = true; S.frozen = false; document.body.classList.remove('frozen'); $('#leds').dataset.ready = ''; renderChrome(); load(S.scenario); }
 });
 document.addEventListener('keydown', (ev) => {
   if (ev.code === 'Space') { ev.preventDefault(); $('#run').click(); }
