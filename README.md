@@ -8,11 +8,11 @@
 When two AIs meet on a phone call, they should not keep talking in synthesized speech.
 They recognize each other with a two-second tone, prove who they are over HTTPS, and finish the booking through an API. People on the line never hear it.
 
-[**Live demo →**](https://viva-lee.github.io/agent-handshake/) · [Run it locally](#run-locally) · [How it works](#how-it-works) · [Honest numbers](#honest-numbers) · [Spec](spec/README.md) · [한국어](README.ko.md)
+[**Live demo →**](https://viva-lee.github.io/agent-handshake/) · [Run it locally](#run-locally) · [Use it from your agent](#use-it-from-your-own-agent-mcp) · [How it works](#how-it-works) · [Honest numbers](#honest-numbers) · [Spec](spec/README.md) · [한국어](README.ko.md)
 
 ![Agent Handshake playground: the caller echoes a BIND frame; the spectrogram shows the OFFER and BIND digits as pairs of pure tones](docs/hero.webp)
 
-**3 tone frames · 7 steps · 4 call paths · 24 tests · 0 runtime dependencies · English + 한국어**
+**3 tone frames · 7 steps · 4 call paths · 5 MCP tools · 25 tests · 0 runtime dependencies · English + 한국어**
 
 [Promo video (17 s)](docs/handshake.mp4)
 
@@ -90,10 +90,35 @@ Other entry points:
 ```bash
 npm run demo                          # the three call paths in the terminal
 npm run demo -- handshake --lang ko   # one path with its full timeline, in Korean
-npm test                              # 24 tests, node:test, no dependencies
+npm run mcp                           # the MCP server on stdio (see below)
+npm test                              # 25 tests, node:test, no dependencies
 npm install && npm run typecheck      # optional strict TypeScript check
 npm run build:pages                   # rebuild the static live demo in docs/ (GitHub Pages)
 ```
+
+## Use it from your own agent (MCP)
+
+[`src/mcp/server.ts`](src/mcp/server.ts) is an MCP server that runs on your machine over stdio, so there is nothing to host. It starts a sandbox registry and the two demo shops inside its own process and gives your assistant five tools: `find_business`, `check_availability`, `book`, `cancel_booking` and `verify_receipt`. Every registry record and receipt is signature-checked.
+
+Claude Code:
+
+```bash
+claude mcp add counter -- node /absolute/path/to/agent-handshake/src/mcp/server.ts
+```
+
+Claude Desktop, Cursor and other MCP clients (forward slashes work on Windows too):
+
+```json
+{
+  "mcpServers": {
+    "counter": { "command": "node", "args": ["/absolute/path/to/agent-handshake/src/mcp/server.ts"] }
+  }
+}
+```
+
+Then ask something like *"Book me a women's cut at +1-602-555-0123 this Saturday afternoon and keep the receipt."* Your agent finds the shop, checks free slots, confirms with you, books, and shows the receipt the business signed. Or try the Seoul shop at +82-2-555-0123 in Korean. Nothing real is booked: the shops live inside the server process and reset when it restarts.
+
+This is the API half of the protocol, the "no call" path in the playground. ChatGPT and claude.ai connectors need a hosted remote server, which is next on the roadmap.
 
 ## How it works
 
@@ -144,6 +169,7 @@ src/registry/       reference rendezvous registry
 src/business/       reference shop endpoint (CP-Commit + the shop side of the handshake)
 src/agents/         caller agent, AI receptionist, simulated call, dialog in English and Korean
 src/demo/           fixtures and the scenario runner
+src/mcp/            MCP server on stdio, with the sandbox shops in-process
 src/playground/     the dashboard (one HTML file, bundled fonts, dot-matrix logo)
 test/               node:test suites
 docs/               images and the promo video used in this README
@@ -151,7 +177,7 @@ docs/               images and the promo video used in this README
 
 ## Roadmap
 
-- **Bring your own agent.** An MCP server so Claude, ChatGPT and other assistants can book a Counter shop directly, and an open phone-line endpoint so independent agents can call each other and show up live in the playground.
+- **Bring your own agent.** ✓ A local MCP server ([above](#use-it-from-your-own-agent-mcp)). Next: a hosted MCP endpoint for ChatGPT and claude.ai connectors, and an open phone-line endpoint so independent agents can call each other and show up live in the playground.
 - **Real calls.** Adapters for Pipecat, LiveKit Agents and Twilio.
 - **Ecosystem.** An A2A extension and Agent Card entry, registry federation, deposits bound to ACP or AP2 payment tokens.
 - **Review.** An external security review of the channel-binding step.

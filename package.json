@@ -28,6 +28,7 @@
   "scripts": {
     "demo": "node src/cli.ts",
     "playground": "node src/playground/server.ts",
+    "mcp": "node src/mcp/server.ts",
     "test": "node --test \"test/**/*.test.ts\"",
     "typecheck": "tsc -p tsconfig.json",
     "build:pages": "node scripts/build-pages.ts"

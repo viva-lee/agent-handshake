@@ -8,11 +8,11 @@
 전화로 AI끼리 만나면, 합성 음성으로 계속 대화할 필요가 없습니다.
 2초 남짓한 신호음으로 서로를 알아보고, HTTPS로 신원을 증명한 뒤, 예약은 API로 끝냅니다. 통화 중인 사람에게는 신호음이 들리지 않습니다.
 
-[**라이브 데모 →**](https://viva-lee.github.io/agent-handshake/?lang=ko) · [직접 실행하기](#실행하기) · [동작 방식](#동작-방식) · [정직한 수치](#정직한-수치) · [스펙(영문)](spec/README.md) · [English](README.md)
+[**라이브 데모 →**](https://viva-lee.github.io/agent-handshake/?lang=ko) · [직접 실행하기](#실행하기) · [내 에이전트에서 쓰기](#내-에이전트에서-쓰기-mcp) · [동작 방식](#동작-방식) · [정직한 수치](#정직한-수치) · [스펙(영문)](spec/README.md) · [English](README.md)
 
 ![에이전트 핸드셰이크 플레이그라운드: 7단계가 모두 켜지고 CONNECT, 서명 영수증이 인쇄된 장면](docs/playground-ko.webp)
 
-**신호 프레임 3종 · 7단계 · 통화 경로 4가지 · 테스트 24개 · 런타임 의존성 0 · English + 한국어**
+**신호 프레임 3종 · 7단계 · 통화 경로 4가지 · MCP 도구 5개 · 테스트 25개 · 런타임 의존성 0 · English + 한국어**
 
 [홍보 영상 (17초)](docs/handshake.mp4)
 
@@ -89,9 +89,34 @@ npm run playground            # → http://127.0.0.1:4317
 ```bash
 npm run demo -- --lang ko             # 통화 경로 3가지를 터미널에서
 npm run demo -- handshake --lang ko   # 한 경로의 전체 타임라인
-npm test                              # 테스트 24개
+npm run mcp                           # MCP 서버 (아래 참고)
+npm test                              # 테스트 25개
 npm run build:pages                   # docs/에 정적 라이브 데모 다시 만들기 (GitHub Pages)
 ```
+
+## 내 에이전트에서 쓰기 (MCP)
+
+[`src/mcp/server.ts`](src/mcp/server.ts)는 내 컴퓨터에서 stdio로 실행되는 MCP 서버라서 따로 호스팅할 필요가 없습니다. 실행하면 프로세스 안에 샌드박스 레지스트리와 데모 가게 두 곳이 함께 뜨고, 비서 AI는 도구 5개(`find_business`, `check_availability`, `book`, `cancel_booking`, `verify_receipt`)를 쓸 수 있습니다. 레지스트리 기록과 영수증은 모두 서명을 확인합니다.
+
+Claude Code:
+
+```bash
+claude mcp add counter -- node /absolute/path/to/agent-handshake/src/mcp/server.ts
+```
+
+Claude Desktop, Cursor 등 다른 MCP 클라이언트(Windows에서도 경로에 `/`를 쓰면 됩니다):
+
+```json
+{
+  "mcpServers": {
+    "counter": { "command": "node", "args": ["/absolute/path/to/agent-handshake/src/mcp/server.ts"] }
+  }
+}
+```
+
+그다음 이렇게 말해 보세요. *"+82-2-555-0123에 이번 주 토요일 오후로 여성 커트 예약해 주고 영수증 보관해 줘."* 에이전트가 가게를 찾고, 빈 시간을 확인하고, 사용자에게 확인을 받은 뒤 예약하고, 가게가 서명한 영수증을 보여 줍니다. 피닉스 가게(+1-602-555-0123)는 영어로 써 보세요. 실제 예약은 되지 않습니다. 가게는 서버 프로세스 안에만 있고 다시 시작하면 초기화됩니다.
+
+이것은 프로토콜의 API 절반, 즉 플레이그라운드의 '전화 없음' 경로입니다. ChatGPT나 claude.ai 커넥터는 호스팅된 원격 서버가 필요해서 다음 단계로 진행합니다.
 
 ## 동작 방식
 
@@ -107,7 +132,7 @@ npm run build:pages                   # docs/에 정적 라이브 데모 다시 
 
 ## 다음 계획
 
-- **내 에이전트 연결하기.** Claude, ChatGPT 같은 비서가 Counter 가게를 바로 예약할 수 있는 MCP 서버를 만듭니다. 서로 다른 에이전트끼리 전화를 걸고, 그 모습이 플레이그라운드에 실시간으로 보이는 공개 회선도 엽니다.
+- **내 에이전트 연결하기.** ✓ 로컬 MCP 서버([위 참고](#내-에이전트에서-쓰기-mcp)). 다음은 ChatGPT와 claude.ai 커넥터용 호스팅 MCP 엔드포인트입니다. 서로 다른 에이전트끼리 전화를 걸고, 그 모습이 플레이그라운드에 실시간으로 보이는 공개 회선도 엽니다.
 - **실제 전화.** Pipecat, LiveKit Agents, Twilio 연동.
 - **생태계.** A2A 확장, 레지스트리 연합, ACP·AP2 결제 토큰을 쓰는 예약금.
 - **검증.** 통화 결합 단계에 대한 외부 보안 검토.
